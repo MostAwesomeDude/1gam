@@ -18,6 +18,8 @@ data GlobalData = GlobalData { _screen   :: Surface
                              , _quitFlag :: Bool }
     deriving (Show)
 
+type Loop = StateT GlobalData IO ()
+
 screen :: Simple Lens GlobalData Surface
 screen f gd = fmap (\x -> gd { _screen = x }) (f $ _screen gd)
 
@@ -37,12 +39,19 @@ loadImage path m = do
     surface <- load path
     return $ Map.insert path surface m
 
-mainLoop :: StateT GlobalData IO ()
+loadTestImage :: Loop
+loadTestImage = do
+    m <- use images
+    m' <- lift $ loadImage "heather1.png" m
+    images .= m'
+
+mainLoop :: Loop
 mainLoop = do
     event <- lift pollEvent
     case event of
         NoEvent -> return ()
         KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
+        KeyDown (Keysym SDLK_l _ _) -> loadTestImage
         _ -> lift . putStrLn $ show event
     s <- use screen
     lift $ SDL.flip s
