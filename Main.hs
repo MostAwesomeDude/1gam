@@ -60,8 +60,11 @@ loadImage path m = do
 loadSheet :: FilePath -> Loop
 loadSheet path = do
     json <- lift $ readFile path
+    let sheet = case decodeStrict json of
+            Ok a -> a
+            Error s -> emptySpriteSheet
     m <- use images
-    m' <- lift $ loadImage "heather1.png" m
+    m' <- lift $ loadImage (sheet ^. ssFilePath) m
     images .= m'
 
 mainLoop :: Loop
