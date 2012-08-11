@@ -20,14 +20,7 @@ data GlobalData = GlobalData { _screen   :: Surface
 
 type Loop = StateT GlobalData IO ()
 
-screen :: Simple Lens GlobalData Surface
-screen f gd = fmap (\x -> gd { _screen = x }) (f $ _screen gd)
-
-images :: Simple Lens GlobalData ImageMap
-images f gd = fmap (\x -> gd { _images = x }) (f $ _images gd)
-
-quitFlag :: Simple Lens GlobalData Bool
-quitFlag f gd = fmap (\x -> gd { _quitFlag = x }) (f $ _quitFlag gd)
+makeLenses ''GlobalData
 
 getScreen :: IO GlobalData
 getScreen = do
