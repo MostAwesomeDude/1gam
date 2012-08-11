@@ -46,17 +46,20 @@ loadTestImage = do
     images .= m'
 
 mainLoop :: Loop
-mainLoop = do
-    event <- lift pollEvent
-    case event of
-        NoEvent -> return ()
-        KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
-        KeyDown (Keysym SDLK_l _ _) -> loadTestImage
-        _ -> lift . putStrLn $ show event
-    s <- use screen
-    lift $ SDL.flip s
-    q <- use quitFlag
-    unless q $ mainLoop
+mainLoop = loadImages >> loop
+    where
+    loop = do
+        event <- lift pollEvent
+        case event of
+            NoEvent -> return ()
+            KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
+            _ -> lift . putStrLn $ show event
+        s <- use screen
+        lift $ SDL.flip s
+        q <- use quitFlag
+        unless q $ loop
+    loadImages = do
+        loadTestImage
 
 actualMain :: IO ()
 actualMain = do
