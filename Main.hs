@@ -7,6 +7,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.IORef
 import qualified Data.Map as Map
+import Text.JSON
 
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
@@ -18,9 +19,33 @@ data GlobalData = GlobalData { _screen   :: Surface
                              , _quitFlag :: Bool }
     deriving (Show)
 
+makeLenses ''GlobalData
+
 type Loop = StateT GlobalData IO ()
 
-makeLenses ''GlobalData
+jsonToMap :: JSObject e -> Map.Map String e
+jsonToMap = Map.fromList . fromJSObject
+
+data SpriteSheet = SpriteSheet { _ssFilePath :: FilePath }
+    deriving (Show)
+
+makeLenses ''SpriteSheet
+
+emptySpriteSheet = SpriteSheet ""
+
+instance JSON SpriteSheet where
+    readJSON (JSObject o) = let
+        m = jsonToMap o
+        in Ok $ Prelude.flip execState emptySpriteSheet $ do
+            case Map.lookup "meta" m of
+                Just (JSObject o') -> do
+                    let m' = jsonToMap o'
+                    case Map.lookup "image" m' of
+                        Just (JSString s) -> ssFilePath .= fromJSString s
+                        Nothing -> return ()
+                Nothing -> return ()
+
+    showJSON _ = undefined
 
 getScreen :: IO GlobalData
 getScreen = do
@@ -32,8 +57,9 @@ loadImage path m = do
     surface <- load path
     return $ Map.insert path surface m
 
-loadTestImage :: Loop
-loadTestImage = do
+loadSheet :: FilePath -> Loop
+loadSheet path = do
+    json <- lift $ readFile path
     m <- use images
     m' <- lift $ loadImage "heather1.png" m
     images .= m'
@@ -52,7 +78,7 @@ mainLoop = loadImages >> loop
         q <- use quitFlag
         unless q $ loop
     loadImages = do
-        loadTestImage
+        loadSheet "heather.json"
 
 actualMain :: IO ()
 actualMain = do

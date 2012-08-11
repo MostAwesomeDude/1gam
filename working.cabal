@@ -55,5 +55,6 @@ Executable working
                    , SDL
                    , SDL-image
                    , containers
+                   , json
                    , lens
                    , transformers
