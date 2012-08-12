@@ -68,6 +68,17 @@ loadSheet path = do
     m' <- lift $ loadImage path m
     images .= m'
 
+clearScreen :: Loop
+clearScreen = do
+    s <- use screen
+    _ <- lift $ fillRect s Nothing (Pixel 0x0)
+    return ()
+
+finishFrame :: Loop
+finishFrame = do
+    s <- use screen
+    lift $ SDL.flip s
+
 mainLoop :: Loop
 mainLoop = loadImages >> loop
     where
@@ -77,8 +88,8 @@ mainLoop = loadImages >> loop
             NoEvent -> return ()
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
-        s <- use screen
-        lift $ SDL.flip s
+        clearScreen
+        finishFrame
         q <- use quitFlag
         unless q $ loop
     loadImages = do
