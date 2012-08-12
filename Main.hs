@@ -7,12 +7,18 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.IORef
 import qualified Data.Map as Map
-import Text.JSON
 
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
-type ImageMap = Map.Map FilePath Surface
+data SpriteSheet = SpriteSheet { _ssFilePath :: FilePath
+                               , _ssAtlas :: Surface
+                               , _ssdw, _ssdh, _ssw, _ssh :: Int }
+    deriving (Show)
+
+makeLenses ''SpriteSheet
+
+type ImageMap = Map.Map FilePath SpriteSheet
 
 data GlobalData = GlobalData { _screen   :: Surface
                              , _images   :: ImageMap
@@ -23,48 +29,43 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-jsonToMap :: JSObject e -> Map.Map String e
-jsonToMap = Map.fromList . fromJSObject
-
-data SpriteSheet = SpriteSheet { _ssFilePath :: FilePath }
+data Sprite = Sprite { _sAtlas :: Surface
+                     , _rect :: Rect }
     deriving (Show)
 
-makeLenses ''SpriteSheet
-
-emptySpriteSheet = SpriteSheet ""
-
-instance JSON SpriteSheet where
-    readJSON (JSObject o) = let
-        m = jsonToMap o
-        in Ok $ Prelude.flip execState emptySpriteSheet $ do
-            case Map.lookup "meta" m of
-                Just (JSObject o') -> do
-                    let m' = jsonToMap o'
-                    case Map.lookup "image" m' of
-                        Just (JSString s) -> ssFilePath .= fromJSString s
-                        Nothing -> return ()
-                Nothing -> return ()
-
-    showJSON _ = undefined
+makeLenses ''Sprite
 
 getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [DoubleBuf, SWSurface]
     return $ GlobalData screen Map.empty False
 
+coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
+coordsAt x y w h i = let
+    w' = x `div` w
+    (y', x') = i `divMod` w'
+    in (x', y')
+
+toSprite :: Int -> Getter SpriteSheet Sprite
+toSprite i = let
+    f (SpriteSheet _ atlas w h x y) = let
+        (x', y') = coordsAt x y w h i
+        in Sprite atlas $ Rect x' y' (x' + x) (y' + y)
+    in to f
+
 loadImage :: FilePath -> ImageMap -> IO ImageMap
 loadImage path m = do
     surface <- load path
-    return $ Map.insert path surface m
+    rect <- getClipRect surface
+    let w = rectW rect
+        h = rectH rect
+        sheet = SpriteSheet path surface 408 325 w h
+    return $ Map.insert path sheet m
 
 loadSheet :: FilePath -> Loop
 loadSheet path = do
-    json <- lift $ readFile path
-    let sheet = case decodeStrict json of
-            Ok a -> a
-            Error s -> emptySpriteSheet
     m <- use images
-    m' <- lift $ loadImage (sheet ^. ssFilePath) m
+    m' <- lift $ loadImage path m
     images .= m'
 
 mainLoop :: Loop
@@ -81,7 +82,7 @@ mainLoop = loadImages >> loop
         q <- use quitFlag
         unless q $ loop
     loadImages = do
-        loadSheet "heather.json"
+        loadSheet "heather1.png"
 
 actualMain :: IO ()
 actualMain = do
