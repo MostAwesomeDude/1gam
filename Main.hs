@@ -37,7 +37,7 @@ makeLenses ''Sprite
 
 getScreen :: IO GlobalData
 getScreen = do
-    screen <- setVideoMode 640 480 32 [DoubleBuf, SWSurface]
+    screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
     return $ GlobalData screen Map.empty False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -78,7 +78,6 @@ loadSheet path = do
 clearScreen :: Loop
 clearScreen = do
     s <- use screen
-    _ <- lift $ fillRect s Nothing (Pixel 0x333333)
     return ()
 
 blitSprite :: Sprite -> Loop
@@ -88,14 +87,13 @@ blitSprite sprite = let
     in do
         s <- use screen
         lift . putStrLn $ show sprite
-        _ <- lift $ blitSurface atlas (Just sr) s (Just sr)
-        lift $ updateRect s sr
+        _ <- lift $ blitSurface atlas (Just sr) s Nothing
         return ()
 
 finishFrame :: Loop
 finishFrame = do
     s <- use screen
-    lift $ SDL.flip s
+    lift . SDL.flip $ s
 
 mainLoop :: Loop
 mainLoop = loadImages >> loop
