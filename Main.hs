@@ -109,9 +109,8 @@ mainLoop = loadImages >> loop
         clearScreen
         finishFrame
         q <- use quitFlag
-        unless q $ loop
-    loadImages = do
-        loadSheet "heather1.png"
+        unless q loop
+    loadImages = loadSheet "heather1.png"
 
 actualMain :: IO ()
 actualMain = do
