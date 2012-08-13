@@ -58,3 +58,6 @@ Executable working
                    , json
                    , lens
                    , transformers
+
+  -- GHC compiler flags.
+  ghc-options:         -Wall -rtsopts
