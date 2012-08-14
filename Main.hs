@@ -35,6 +35,12 @@ data Sprite = Sprite { _sAtlas :: Surface
 
 makeLenses ''Sprite
 
+liift :: (MonadTrans t, Monad m) => (b -> m a) -> b -> t m a
+liift = (lift .)
+
+liiift :: (MonadTrans t, Monad m) => (b -> c -> m a) -> b -> c -> t m a
+liiift = ((lift .) .)
+
 getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
@@ -72,12 +78,12 @@ loadImage path m = do
 loadSheet :: FilePath -> Loop
 loadSheet path = do
     m <- use images
-    m' <- lift $ loadImage path m
-    images .= m'
+    images <~ liiift loadImage path m
 
 clearScreen :: Loop
 clearScreen = do
     s <- use screen
+    _ <- lift $ fillRect s Nothing (Pixel 0x333333)
     return ()
 
 blitSprite :: Sprite -> Loop
@@ -105,8 +111,8 @@ mainLoop = loadImages >> loop
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         sprite <- use $ images . spriteAt "heather1.png" 0
-        blitSprite sprite
         clearScreen
+        blitSprite sprite
         finishFrame
         q <- use quitFlag
         unless q loop
