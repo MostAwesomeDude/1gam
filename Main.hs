@@ -28,7 +28,7 @@ type ImageMap = Map.Map FilePath SpriteSheet
 
 data GlobalData = GlobalData { _screen   :: Surface
                              , _images   :: ImageMap
-                             , _sprite   :: Maybe Sprite
+                             , _sprite   :: Sprite
                              , _quitFlag :: Bool }
     deriving (Show)
 
@@ -48,10 +48,18 @@ liift = (lift .)
 liiift :: (MonadTrans t, Monad m) => (b -> c -> m a) -> b -> c -> t m a
 liiift = ((lift .) .)
 
+nullSprite :: IO Sprite
+nullSprite = do
+    s <- createRGBSurface [SWSurface] 0xff 0x0 0x0 0 0 100 100
+    s' <- displayFormat s
+    r <- getClipRect s'
+    return $ Sprite s' r
+
 getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
-    return $ GlobalData screen Map.empty Nothing False
+    spr <- nullSprite
+    return $ GlobalData screen Map.empty spr False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let
@@ -116,8 +124,12 @@ mainLoop = loadImages >> loop
         case event of
             NoEvent -> return ()
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
+            KeyDown (Keysym SDLK_LEFT _ _) -> sprite . rect . rX -= 1
+            KeyDown (Keysym SDLK_RIGHT _ _) -> sprite . rect . rX += 1
+            KeyDown (Keysym SDLK_UP _ _) -> sprite . rect . rY -= 1
+            KeyDown (Keysym SDLK_DOWN _ _) -> sprite . rect . rY += 1
             _ -> lift . putStrLn $ show event
-        Just spr <- use sprite
+        spr <- use sprite
         clearScreen
         blitSprite spr
         finishFrame
@@ -126,8 +138,7 @@ mainLoop = loadImages >> loop
     loadImages = do
         loadSheet "heather1.png"
         spr <- use $ images . spriteAt "heather1.png" 0
-        sprite .= Just spr
-
+        sprite .= spr
 
 actualMain :: IO ()
 actualMain = do
