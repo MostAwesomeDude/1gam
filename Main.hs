@@ -11,6 +11,12 @@ import Data.Map.Lens
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
+data Sprite = Sprite { _sAtlas :: Surface
+                     , _rect :: Rect }
+    deriving (Show)
+
+makeLenses ''Sprite
+
 data SpriteSheet = SpriteSheet { _ssFilePath :: FilePath
                                , _ssAtlas :: Surface
                                , _ssw, _ssh, _ssdw, _ssdh :: Int }
@@ -22,6 +28,7 @@ type ImageMap = Map.Map FilePath SpriteSheet
 
 data GlobalData = GlobalData { _screen   :: Surface
                              , _images   :: ImageMap
+                             , _sprite   :: Maybe Sprite
                              , _quitFlag :: Bool }
     deriving (Show)
 
@@ -29,11 +36,11 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-data Sprite = Sprite { _sAtlas :: Surface
-                     , _rect :: Rect }
-    deriving (Show)
-
-makeLenses ''Sprite
+rX, rY, rW, rH :: Simple Lens Rect Int
+rX f r = fmap (\x -> r { rectX = x }) (f (rectX r))
+rY f r = fmap (\x -> r { rectY = x }) (f (rectY r))
+rW f r = fmap (\x -> r { rectW = x }) (f (rectW r))
+rH f r = fmap (\x -> r { rectH = x }) (f (rectH r))
 
 liift :: (MonadTrans t, Monad m) => (b -> m a) -> b -> t m a
 liift = (lift .)
@@ -44,7 +51,7 @@ liiift = ((lift .) .)
 getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
-    return $ GlobalData screen Map.empty False
+    return $ GlobalData screen Map.empty Nothing False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let
@@ -110,13 +117,17 @@ mainLoop = loadImages >> loop
             NoEvent -> return ()
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
-        sprite <- use $ images . spriteAt "heather1.png" 0
+        Just spr <- use sprite
         clearScreen
-        blitSprite sprite
+        blitSprite spr
         finishFrame
         q <- use quitFlag
         unless q loop
-    loadImages = loadSheet "heather1.png"
+    loadImages = do
+        loadSheet "heather1.png"
+        spr <- use $ images . spriteAt "heather1.png" 0
+        sprite .= Just spr
+
 
 actualMain :: IO ()
 actualMain = do
