@@ -7,12 +7,13 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import qualified Data.Map as Map
 import Data.Map.Lens
+import Data.Word
 
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
 data Sprite = Sprite { _sAtlas :: Surface
-                     , _rect :: Rect }
+                     , _sRect :: Rect }
     deriving (Show)
 
 makeLenses ''Sprite
@@ -26,10 +27,11 @@ makeLenses ''SpriteSheet
 
 type ImageMap = Map.Map FilePath SpriteSheet
 
-data GlobalData = GlobalData { _screen   :: Surface
-                             , _images   :: ImageMap
-                             , _sprite   :: Sprite
-                             , _quitFlag :: Bool }
+data GlobalData = GlobalData { _screen    :: Surface
+                             , _images    :: ImageMap
+                             , _sprite    :: Sprite
+                             , _timestamp :: Word32
+                             , _quitFlag  :: Bool }
     deriving (Show)
 
 makeLenses ''GlobalData
@@ -59,7 +61,7 @@ getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
     spr <- nullSprite
-    return $ GlobalData screen Map.empty spr False
+    return $ GlobalData screen Map.empty spr 0 False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let
@@ -104,7 +106,7 @@ clearScreen = do
 blitSprite :: Sprite -> Loop
 blitSprite sprite = let
     atlas = sprite ^. sAtlas
-    sr = sprite ^. rect
+    sr = sprite ^. sRect
     in do
         s <- use screen
         lift . putStrLn $ show sprite
@@ -116,6 +118,15 @@ finishFrame = do
     s <- use screen
     lift . SDL.flip $ s
 
+updateTimestamp :: Loop
+updateTimestamp = do
+    ticks <- use timestamp
+    ticks' <- lift getTicks
+    let diff = ticks' - ticks
+    let fps = 1000 `div` diff
+    lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show fps ++ ")"
+    timestamp .= ticks'
+
 mainLoop :: Loop
 mainLoop = loadImages >> loop
     where
@@ -124,15 +135,16 @@ mainLoop = loadImages >> loop
         case event of
             NoEvent -> return ()
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
-            KeyDown (Keysym SDLK_LEFT _ _) -> sprite . rect . rX -= 1
-            KeyDown (Keysym SDLK_RIGHT _ _) -> sprite . rect . rX += 1
-            KeyDown (Keysym SDLK_UP _ _) -> sprite . rect . rY -= 1
-            KeyDown (Keysym SDLK_DOWN _ _) -> sprite . rect . rY += 1
+            KeyDown (Keysym SDLK_LEFT _ _) -> sprite . sRect . rX -= 1
+            KeyDown (Keysym SDLK_RIGHT _ _) -> sprite . sRect . rX += 1
+            KeyDown (Keysym SDLK_UP _ _) -> sprite . sRect . rY -= 1
+            KeyDown (Keysym SDLK_DOWN _ _) -> sprite . sRect . rY += 1
             _ -> lift . putStrLn $ show event
         spr <- use sprite
         clearScreen
         blitSprite spr
         finishFrame
+        updateTimestamp
         q <- use quitFlag
         unless q loop
     loadImages = do
