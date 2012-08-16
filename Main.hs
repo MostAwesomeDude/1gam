@@ -9,6 +9,7 @@ import qualified Data.Map as Map
 import Data.Map.Lens
 import Data.Word
 
+import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
@@ -22,7 +23,7 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-rX, rY, rW, rH :: Simple Lens Rect Int
+rX, rY, rW, rH :: Simple Lens SDL.Rect Int
 rX f r = fmap (\x -> r { rectX = x }) (f (rectX r))
 rY f r = fmap (\x -> r { rectY = x }) (f (rectY r))
 rW f r = fmap (\x -> r { rectW = x }) (f (rectW r))
@@ -36,7 +37,7 @@ liiift = ((lift .) .)
 
 getScreen :: IO GlobalData
 getScreen = do
-    screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
+    screen <- setVideoMode 640 480 32 [OpenGL, DoubleBuf]
     return $ GlobalData screen 0 0 False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -45,16 +46,13 @@ coordsAt w h dw dh i = let
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
 
-clearScreen :: Loop
+clearScreen :: IO ()
 clearScreen = do
-    s <- use screen
-    _ <- lift $ fillRect s Nothing (Pixel 0x333333)
-    return ()
+    clearColor $= Color4 0.1 0.1 0.1 0.0
+    clear [ColorBuffer]
 
-finishFrame :: Loop
-finishFrame = do
-    s <- use screen
-    lift . SDL.flip $ s
+finishFrame :: IO ()
+finishFrame = glSwapBuffers
 
 mma :: Int -> Int -> Int
 mma new old = (19 * old + new) `div` 20
@@ -78,8 +76,8 @@ mainLoop = loop
             NoEvent -> return ()
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
-        clearScreen
-        finishFrame
+        lift clearScreen
+        lift finishFrame
         updateTimestamp
         q <- use quitFlag
         unless q loop

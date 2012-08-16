@@ -52,6 +52,7 @@ Executable working
   
   -- Packages needed in order to build this package.
   Build-depends:     base >= 4 && < 5
+                   , OpenGL
                    , SDL
                    , SDL-image
                    , containers
