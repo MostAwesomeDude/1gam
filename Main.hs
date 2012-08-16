@@ -14,6 +14,7 @@ import Graphics.UI.SDL.Image
 
 data GlobalData = GlobalData { _screen    :: Surface
                              , _timestamp :: Word32
+                             , _fps       :: Int
                              , _quitFlag  :: Bool }
     deriving (Show)
 
@@ -36,7 +37,7 @@ liiift = ((lift .) .)
 getScreen :: IO GlobalData
 getScreen = do
     screen <- setVideoMode 640 480 32 [SWSurface, DoubleBuf]
-    return $ GlobalData screen 0 False
+    return $ GlobalData screen 0 0 False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let
@@ -55,13 +56,17 @@ finishFrame = do
     s <- use screen
     lift . SDL.flip $ s
 
+mma :: Int -> Int -> Int
+mma new old = (19 * old + new) `div` 20
+
 updateTimestamp :: Loop
 updateTimestamp = do
     ticks <- use timestamp
     ticks' <- lift getTicks
     let diff = ticks' - ticks
-    let fps = 1000 `div` diff
-    lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show fps ++ ")"
+    let fps' = fromIntegral $ 1000 `div` diff
+    adjusted <- fps <%= mma fps'
+    lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show adjusted ++ ")"
     timestamp .= ticks'
 
 mainLoop :: Loop
