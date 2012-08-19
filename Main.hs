@@ -51,6 +51,16 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
+drawBox :: IO ()
+drawBox = renderPrimitive Quads box
+    where
+    box = do
+        color (Color3 0 0 (255 :: GLubyte))
+        vertex (Vertex2 0.25 (0.25 :: GLfloat))
+        vertex (Vertex2 0.75 (0.25 :: GLfloat))
+        vertex (Vertex2 0.75 (0.75 :: GLfloat))
+        vertex (Vertex2 0.25 (0.75 :: GLfloat))
+
 finishFrame :: IO ()
 finishFrame = glSwapBuffers
 
@@ -77,6 +87,7 @@ mainLoop = loop
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         lift clearScreen
+        lift drawBox
         lift finishFrame
         updateTimestamp
         q <- use quitFlag
