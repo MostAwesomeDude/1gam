@@ -78,17 +78,13 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
-drawBox :: (ColorComponent c, VertexComponent a) => Box c a -> IO ()
-drawBox (Box c _ _) = renderPrimitive Quads quad
+drawBox :: Box GLubyte GLfloat -> IO ()
+drawBox b@(Box c _ _) = renderPrimitive Quads quad
     where
-    -- x = r ^. rX . to fromIntegral :: GLint
-    -- y = r ^. rY . to fromIntegral
-    -- x' = x + (r ^. rW . to fromIntegral) :: GLint
-    -- y' = y + (r ^. rH . to fromIntegral)
-    x = -0.9 :: GLfloat
-    y = -0.9 :: GLfloat
-    x' = 0.9 :: GLfloat
-    y' = 0.9 :: GLfloat
+    x = b ^. bX
+    y = b ^. bY
+    x' = b ^. bX'
+    y' = b ^. bY'
     quad = do
         color $ c
         vertex (Vertex2 x y)
@@ -115,6 +111,7 @@ updateTimestamp = do
 mainLoop :: Loop
 mainLoop = loop
     where
+    box = Box (Color3 0 0 255) (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
         case event of
@@ -125,7 +122,7 @@ mainLoop = loop
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         lift clearScreen
-        --lift . drawBox $ Box (Color3 0 0 (255 :: GLubyte)) (SDL.Rect 20 30 40 50)
+        lift . drawBox $ box
         lift finishFrame
         updateTimestamp
         q <- use quitFlag
