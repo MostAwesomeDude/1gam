@@ -5,13 +5,12 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
-import qualified Data.Map as Map
-import Data.Map.Lens
 import Data.Word
 
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
-import Graphics.UI.SDL.Image
+
+data Box c = Box (Color3 c) SDL.Rect
 
 data GlobalData = GlobalData { _screen    :: Surface
                              , _timestamp :: Word32
@@ -35,9 +34,17 @@ liift = (lift .)
 liiift :: (MonadTrans t, Monad m) => (b -> c -> m a) -> b -> c -> t m a
 liiift = ((lift .) .)
 
-getScreen :: IO GlobalData
-getScreen = do
-    screen <- setVideoMode 640 480 32 [OpenGL, DoubleBuf]
+resizeScreen :: GLsizei -> GLsizei -> IO Surface
+resizeScreen w h = let
+    flags = [OpenGL, DoubleBuf, Resizable]
+    in do
+        screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
+        viewport $= (Position 0 0, Size w h)
+        return screen
+
+getInitialState :: IO GlobalData
+getInitialState = do
+    screen <- resizeScreen 1 1
     return $ GlobalData screen 0 0 False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -51,15 +58,23 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
-drawBox :: IO ()
-drawBox = renderPrimitive Quads box
+drawBox :: (ColorComponent c) => Box c -> IO ()
+drawBox (Box c r) = renderPrimitive Quads quad
     where
-    box = do
-        color (Color3 0 0 (255 :: GLubyte))
-        vertex (Vertex2 0.25 (0.25 :: GLfloat))
-        vertex (Vertex2 0.75 (0.25 :: GLfloat))
-        vertex (Vertex2 0.75 (0.75 :: GLfloat))
-        vertex (Vertex2 0.25 (0.75 :: GLfloat))
+    -- x = r ^. rX . to fromIntegral :: GLint
+    -- y = r ^. rY . to fromIntegral
+    -- x' = x + (r ^. rW . to fromIntegral) :: GLint
+    -- y' = y + (r ^. rH . to fromIntegral)
+    x = 0.25 :: GLfloat
+    y = 0.25 :: GLfloat
+    x' = 0.75 :: GLfloat
+    y' = 0.75 :: GLfloat
+    quad = do
+        color $ c
+        vertex (Vertex2 x y)
+        vertex (Vertex2 x' y)
+        vertex (Vertex2 x' y')
+        vertex (Vertex2 x y')
 
 finishFrame :: IO ()
 finishFrame = glSwapBuffers
@@ -84,10 +99,13 @@ mainLoop = loop
         event <- lift pollEvent
         case event of
             NoEvent -> return ()
+            VideoResize w h -> do
+                s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
+                screen .= s
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         lift clearScreen
-        lift drawBox
+        lift . drawBox $ Box (Color3 0 0 (255 :: GLubyte)) (SDL.Rect 20 30 40 50)
         lift finishFrame
         updateTimestamp
         q <- use quitFlag
@@ -95,7 +113,7 @@ mainLoop = loop
 
 actualMain :: IO ()
 actualMain = do
-    initial <- getScreen
+    initial <- getInitialState
     _ <- runStateT mainLoop initial
     return ()
 
