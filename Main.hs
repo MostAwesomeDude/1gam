@@ -10,7 +10,7 @@ import Data.Word
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
-data Box c = Box (Color3 c) SDL.Rect
+data Box c a = Box (Color3 c) (Vertex2 a) (Vertex2 a)
 
 data GlobalData = GlobalData { _screen    :: Surface
                              , _timestamp :: Word32
@@ -22,11 +22,21 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-rX, rY, rW, rH :: Simple Lens SDL.Rect Int
-rX f r = fmap (\x -> r { rectX = x }) (f (rectX r))
-rY f r = fmap (\x -> r { rectY = x }) (f (rectY r))
-rW f r = fmap (\x -> r { rectW = x }) (f (rectW r))
-rH f r = fmap (\x -> r { rectH = x }) (f (rectH r))
+bX, bY, bX', bY' :: Simple Lens (Box c a) a
+bX f (Box c (Vertex2 x y) v) = fmap (\x' -> Box c (Vertex2 x' y) v) (f x)
+bY f (Box c (Vertex2 x y) v) = fmap (\y' -> Box c (Vertex2 x y') v) (f y)
+bX' f (Box c v (Vertex2 x y)) = fmap (\x' -> Box c v (Vertex2 x' y)) (f x)
+bY' f (Box c v (Vertex2 x y)) = fmap (\y' -> Box c v (Vertex2 x y')) (f y)
+
+bW, bH, bW', bH' :: (Num a) => Simple Lens (Box c a) a
+bW f (Box c (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\w -> Box c (Vertex2 x y) (Vertex2 (x + w) y')) (f (x' - x))
+bH f (Box c (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\h -> Box c (Vertex2 x y) (Vertex2 x' (y + h))) (f (y' - y))
+bW' f (Box c (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\w -> Box c (Vertex2 (x' - w) y) (Vertex2 x' y')) (f (x' - x))
+bH' f (Box c (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\h -> Box c (Vertex2 x (y' - h)) (Vertex2 x' y)) (f (y' - y))
 
 liift :: (MonadTrans t, Monad m) => (b -> m a) -> b -> t m a
 liift = (lift .)
@@ -68,8 +78,8 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
-drawBox :: (ColorComponent c) => Box c -> IO ()
-drawBox (Box c r) = renderPrimitive Quads quad
+drawBox :: (ColorComponent c, VertexComponent a) => Box c a -> IO ()
+drawBox (Box c _ _) = renderPrimitive Quads quad
     where
     -- x = r ^. rX . to fromIntegral :: GLint
     -- y = r ^. rY . to fromIntegral
@@ -115,7 +125,7 @@ mainLoop = loop
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         lift clearScreen
-        lift . drawBox $ Box (Color3 0 0 (255 :: GLubyte)) (SDL.Rect 20 30 40 50)
+        --lift . drawBox $ Box (Color3 0 0 (255 :: GLubyte)) (SDL.Rect 20 30 40 50)
         lift finishFrame
         updateTimestamp
         q <- use quitFlag
