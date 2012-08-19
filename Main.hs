@@ -34,12 +34,22 @@ liift = (lift .)
 liiift :: (MonadTrans t, Monad m) => (b -> c -> m a) -> b -> c -> t m a
 liiift = ((lift .) .)
 
+-- Resize the viewport such that:
+--  * The smallest dimension still corresponds to at least [-1, 1]
+--  * The viewport is centered on (0, 0)
+resizeViewport :: GLsizei -> GLsizei -> IO ()
+resizeViewport w h
+    | w > h     = viewport $= (Position ((w - h) `div` 2) 0, Size h h)
+    | otherwise = viewport $= (Position 0 ((h - w) `div` 2), Size w w)
+
 resizeScreen :: GLsizei -> GLsizei -> IO Surface
 resizeScreen w h = let
     flags = [OpenGL, DoubleBuf, Resizable]
     in do
         screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
-        viewport $= (Position 0 0, Size w h)
+        resizeViewport w h
+        matrixMode $= Projection
+        ortho2D 0 0 1 1
         return screen
 
 getInitialState :: IO GlobalData
@@ -65,10 +75,10 @@ drawBox (Box c r) = renderPrimitive Quads quad
     -- y = r ^. rY . to fromIntegral
     -- x' = x + (r ^. rW . to fromIntegral) :: GLint
     -- y' = y + (r ^. rH . to fromIntegral)
-    x = 0.25 :: GLfloat
-    y = 0.25 :: GLfloat
-    x' = 0.75 :: GLfloat
-    y' = 0.75 :: GLfloat
+    x = -0.9 :: GLfloat
+    y = -0.9 :: GLfloat
+    x' = 0.9 :: GLfloat
+    y' = 0.9 :: GLfloat
     quad = do
         color $ c
         vertex (Vertex2 x y)
