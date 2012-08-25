@@ -127,8 +127,7 @@ drawSprite (Textured texobj b) = do
         activeTexture $= TextureUnit 0
         textureBinding Texture2D $= Just texobj
         textureFunction $= Replace
-    disableTextures = do
-        texture Texture2D $= Disabled
+    disableTextures = texture Texture2D $= Disabled
     quad = do
         texCoord (TexCoord2 r s)
         vertex (Vertex2 x y)
