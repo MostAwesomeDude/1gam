@@ -7,8 +7,14 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Word
 
+import Codec.Image.STB
+import Data.Bitmap.Simple
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
+
+-- Because StateVar chose to override the name "get". :T
+getState :: HasGetter g => g a -> IO a
+getState = Graphics.Rendering.OpenGL.get
 
 data Box c a = Box (Color3 c) (Vertex2 a) (Vertex2 a)
 
@@ -109,7 +115,7 @@ updateTimestamp = do
     timestamp .= ticks'
 
 mainLoop :: Loop
-mainLoop = loop
+mainLoop = lift loadTexture >> loop
     where
     box = Box (Color3 0 0 255) (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
@@ -127,10 +133,33 @@ mainLoop = loop
         updateTimestamp
         q <- use quitFlag
         unless q loop
+    loadTexture = do
+        ei <- loadImage "shine1.png"
+        let b = case ei of
+                Left x  -> error x
+                Right x -> x
+        withBitmap b $ \(w, h) chans pad ptr -> let
+            size = TextureSize2D (fromIntegral w) (fromIntegral h)
+            pixels = PixelData RGBA UnsignedByte ptr
+            in do
+                name:[] <- genObjectNames 1
+                textureBinding Texture2D $= Just name
+                texImage2D Nothing NoProxy 0 RGBA8 size 0 pixels
+
+checkExtensions :: IO ()
+checkExtensions = let
+    required = ["ARB_texture_rectangle"]
+    f x = elem $ "GL_" ++ x
+    in do
+        exts <- getState glExtensions
+        forM_ required $ \x -> if f x exts
+            then putStrLn $ "Found extension " ++ x
+            else error $ "Need extension " ++ x
 
 actualMain :: IO ()
 actualMain = do
     initial <- getInitialState
+    checkExtensions
     _ <- runStateT mainLoop initial
     return ()
 

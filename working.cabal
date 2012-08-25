@@ -55,9 +55,11 @@ Executable working
                    , OpenGL
                    , SDL
                    , SDL-image
+                   , bitmap
                    , containers
                    , json
                    , lens
+                   , stb-image
                    , transformers
 
   -- GHC compiler flags.
