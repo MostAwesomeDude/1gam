@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Word
+import Foreign.Ptr
 
 import Codec.Image.STB
 import Data.Bitmap.Simple
@@ -15,6 +16,13 @@ import Graphics.UI.SDL as SDL
 -- Because StateVar chose to override the name "get". :T
 getState :: HasGetter g => g a -> IO a
 getState = Graphics.Rendering.OpenGL.get
+
+checkErrors :: IO ()
+checkErrors = do
+    es <- getState errors
+    if null es
+        then putStrLn "All clear!"
+        else putStrLn ("Error: " ++ show es)
 
 data Box c a = Box (Color3 c) (Vertex2 a) (Vertex2 a)
 
@@ -65,7 +73,6 @@ resizeScreen w h = let
         screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
         resizeViewport w h
         matrixMode $= Projection
-        ortho2D 0 0 1 1
         return screen
 
 getInitialState :: IO GlobalData
@@ -91,11 +98,19 @@ drawBox b@(Box c _ _) = renderPrimitive Quads quad
     y = b ^. bY
     x' = b ^. bX'
     y' = b ^. bY'
+    r = 0 :: GLfloat
+    s = 0 :: GLfloat
+    r' = 1
+    s' = 1
     quad = do
-        color $ c
+        color c
+        texCoord (TexCoord2 r s)
         vertex (Vertex2 x y)
+        texCoord (TexCoord2 r' s)
         vertex (Vertex2 x' y)
+        texCoord (TexCoord2 r' s')
         vertex (Vertex2 x' y')
+        texCoord (TexCoord2 r s')
         vertex (Vertex2 x y')
 
 finishFrame :: IO ()
@@ -134,21 +149,38 @@ mainLoop = lift loadTexture >> loop
         q <- use quitFlag
         unless q loop
     loadTexture = do
-        ei <- loadImage "shine1.png"
+        ei <- loadImage "shine2.png"
         let b = case ei of
                 Left x  -> error x
                 Right x -> x
-        withBitmap b $ \(w, h) chans pad ptr -> let
+        name <- bitmapTexture b
+        texture Texture2D $= Enabled
+        activeTexture $= TextureUnit 0
+        textureBinding Texture2D $= Just name
+        textureFilter Texture2D $= ((Linear', Nothing), Linear')
+        textureFunction $= Replace
+        return ()
+
+bitmapTexture :: PixelComponent p => Bitmap p -> IO TextureObject
+bitmapTexture bitmap = withBitmap bitmap inner
+    where
+        internalFormat 3 = RGB8
+        internalFormat 4 = RGBA8
+        format 3 = RGB
+        format 4 = RGBA
+        inner (w, h) chans 0 ptr = let
             size = TextureSize2D (fromIntegral w) (fromIntegral h)
-            pixels = PixelData RGBA UnsignedByte ptr
+            pixels = PixelData (format chans) UnsignedByte ptr
             in do
-                name:[] <- genObjectNames 1
+                [name] <- genObjectNames 1
                 textureBinding Texture2D $= Just name
                 texImage2D Nothing NoProxy 0 RGBA8 size 0 pixels
+                checkErrors
+                return name
 
 checkExtensions :: IO ()
 checkExtensions = let
-    required = ["ARB_texture_rectangle"]
+    required = ["ARB_texture_rectangle", "ARB_texture_non_power_of_two"]
     f x = elem $ "GL_" ++ x
     in do
         exts <- getState glExtensions
