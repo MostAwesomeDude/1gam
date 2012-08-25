@@ -6,11 +6,9 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Word
-import Foreign.Ptr
 
 import Codec.Image.STB
 import Data.Bitmap.OpenGL
-import Data.Bitmap.Simple
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
@@ -111,7 +109,10 @@ drawSprite (Colored c b) = renderPrimitive Quads quad
         vertex (Vertex2 x' y)
         vertex (Vertex2 x' y')
         vertex (Vertex2 x y')
-drawSprite (Textured texobj b) = renderPrimitive Quads quad
+drawSprite (Textured texobj b) = do
+    enableTextures
+    renderPrimitive Quads quad
+    disableTextures
     where
     x = b ^. bX
     y = b ^. bY
@@ -121,8 +122,14 @@ drawSprite (Textured texobj b) = renderPrimitive Quads quad
     s = 0 :: GLfloat
     r' = 1
     s' = 1
-    quad = do
+    enableTextures = do
+        texture Texture2D $= Enabled
+        activeTexture $= TextureUnit 0
+        textureBinding Texture2D $= Just texobj
         textureFunction $= Replace
+    disableTextures = do
+        texture Texture2D $= Disabled
+    quad = do
         texCoord (TexCoord2 r s)
         vertex (Vertex2 x y)
         texCoord (TexCoord2 r' s)
