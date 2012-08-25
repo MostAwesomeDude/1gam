@@ -9,6 +9,7 @@ import Data.Word
 import Foreign.Ptr
 
 import Codec.Image.STB
+import Data.Bitmap.OpenGL
 import Data.Bitmap.Simple
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
@@ -24,11 +25,17 @@ checkErrors = do
         then putStrLn "All clear!"
         else putStrLn ("Error: " ++ show es)
 
-data Box c a = Box (Color3 c) (Vertex2 a) (Vertex2 a)
+data Box v = Box (Vertex2 v) (Vertex2 v)
+    deriving (Show)
+
+data Sprite c v = Colored (Color3 c) (Box v)
+                | Textured TextureObject (Box v)
+    deriving (Show)
 
 data GlobalData = GlobalData { _screen    :: Surface
                              , _timestamp :: Word32
                              , _fps       :: Int
+                             , _character :: Sprite GLubyte GLfloat
                              , _quitFlag  :: Bool }
     deriving (Show)
 
@@ -36,21 +43,21 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-bX, bY, bX', bY' :: Simple Lens (Box c a) a
-bX f (Box c (Vertex2 x y) v) = fmap (\x' -> Box c (Vertex2 x' y) v) (f x)
-bY f (Box c (Vertex2 x y) v) = fmap (\y' -> Box c (Vertex2 x y') v) (f y)
-bX' f (Box c v (Vertex2 x y)) = fmap (\x' -> Box c v (Vertex2 x' y)) (f x)
-bY' f (Box c v (Vertex2 x y)) = fmap (Box c v . Vertex2 x)           (f y)
+bX, bY, bX', bY' :: Simple Lens (Box a) a
+bX f (Box (Vertex2 x y) v) = fmap (\x' -> Box (Vertex2 x' y) v) (f x)
+bY f (Box (Vertex2 x y) v) = fmap (\y' -> Box (Vertex2 x y') v) (f y)
+bX' f (Box v (Vertex2 x y)) = fmap (\x' -> Box v (Vertex2 x' y)) (f x)
+bY' f (Box v (Vertex2 x y)) = fmap (Box v . Vertex2 x)           (f y)
 
-bW, bH, bW', bH' :: (Num a) => Simple Lens (Box c a) a
-bW f (Box c (Vertex2 x y) (Vertex2 x' y')) =
-    fmap (\w -> Box c (Vertex2 x y) (Vertex2 (x + w) y')) (f (x' - x))
-bH f (Box c (Vertex2 x y) (Vertex2 x' y')) =
-    fmap (\h -> Box c (Vertex2 x y) (Vertex2 x' (y + h))) (f (y' - y))
-bW' f (Box c (Vertex2 x y) (Vertex2 x' y')) =
-    fmap (\w -> Box c (Vertex2 (x' - w) y) (Vertex2 x' y')) (f (x' - x))
-bH' f (Box c (Vertex2 x y) (Vertex2 x' y')) =
-    fmap (\h -> Box c (Vertex2 x (y' - h)) (Vertex2 x' y)) (f (y' - y))
+bW, bH, bW', bH' :: (Num a) => Simple Lens (Box a) a
+bW f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\w -> Box (Vertex2 x y) (Vertex2 (x + w) y')) (f (x' - x))
+bH f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\h -> Box (Vertex2 x y) (Vertex2 x' (y + h))) (f (y' - y))
+bW' f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\w -> Box (Vertex2 (x' - w) y) (Vertex2 x' y')) (f (x' - x))
+bH' f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\h -> Box (Vertex2 x (y' - h)) (Vertex2 x' y)) (f (y' - y))
 
 liift :: (MonadTrans t, Monad m) => (b -> m a) -> b -> t m a
 liift = (lift .)
@@ -72,13 +79,13 @@ resizeScreen w h = let
     in do
         screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
         resizeViewport w h
-        matrixMode $= Projection
         return screen
 
 getInitialState :: IO GlobalData
 getInitialState = do
     screen <- resizeScreen 1 1
-    return $ GlobalData screen 0 0 False
+    let box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+    return $ GlobalData screen 0 0 box False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let
@@ -91,8 +98,20 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
-drawBox :: Box GLubyte GLfloat -> IO ()
-drawBox b@(Box c _ _) = renderPrimitive Quads quad
+drawSprite :: Sprite GLubyte GLfloat -> IO ()
+drawSprite (Colored c b) = renderPrimitive Quads quad
+    where
+    x = b ^. bX
+    y = b ^. bY
+    x' = b ^. bX'
+    y' = b ^. bY'
+    quad = do
+        color c
+        vertex (Vertex2 x y)
+        vertex (Vertex2 x' y)
+        vertex (Vertex2 x' y')
+        vertex (Vertex2 x y')
+drawSprite (Textured texobj b) = renderPrimitive Quads quad
     where
     x = b ^. bX
     y = b ^. bY
@@ -103,7 +122,7 @@ drawBox b@(Box c _ _) = renderPrimitive Quads quad
     r' = 1
     s' = 1
     quad = do
-        color c
+        textureFunction $= Replace
         texCoord (TexCoord2 r s)
         vertex (Vertex2 x y)
         texCoord (TexCoord2 r' s)
@@ -130,9 +149,12 @@ updateTimestamp = do
     timestamp .= ticks'
 
 mainLoop :: Loop
-mainLoop = lift loadTexture >> loop
+mainLoop = makeShine >> loop
     where
-    box = Box (Color3 0 0 255) (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+    makeShine = do
+        texobj <- lift . loadTexture $ "shine2.png"
+        character .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 (-0.8) (-0.8)))
+    box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
         case event of
@@ -143,39 +165,21 @@ mainLoop = lift loadTexture >> loop
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
             _ -> lift . putStrLn $ show event
         lift clearScreen
-        lift . drawBox $ box
+        lift . drawSprite $ box
+        shine <- use character
+        lift . drawSprite $ shine
         lift finishFrame
         updateTimestamp
         q <- use quitFlag
         unless q loop
-    loadTexture = do
-        ei <- loadImage "shine2.png"
-        let b = case ei of
-                Left x  -> error x
-                Right x -> x
-        name <- bitmapTexture b
-        texture Texture2D $= Enabled
-        activeTexture $= TextureUnit 0
-        textureBinding Texture2D $= Just name
-        textureFilter Texture2D $= ((Linear', Nothing), Linear')
-        textureFunction $= Replace
 
-bitmapTexture :: PixelComponent p => Bitmap p -> IO TextureObject
-bitmapTexture bitmap = withBitmap bitmap inner
-    where
-        internalFormat 3 = RGB8
-        internalFormat 4 = RGBA8
-        format 3 = RGB
-        format 4 = RGBA
-        inner (w, h) chans 0 ptr = let
-            size = TextureSize2D (fromIntegral w) (fromIntegral h)
-            pixels = PixelData (format chans) UnsignedByte ptr
-            in do
-                [name] <- genObjectNames 1
-                textureBinding Texture2D $= Just name
-                texImage2D Nothing NoProxy 0 RGBA8 size 0 pixels
-                checkErrors
-                return name
+loadTexture :: FilePath -> IO TextureObject
+loadTexture path = do
+    ei <- loadImage path
+    let b = case ei of
+            Left x  -> error x
+            Right x -> x
+    makeSimpleBitmapTexture b
 
 checkExtensions :: IO ()
 checkExtensions = let
