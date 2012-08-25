@@ -40,7 +40,7 @@ bX, bY, bX', bY' :: Simple Lens (Box c a) a
 bX f (Box c (Vertex2 x y) v) = fmap (\x' -> Box c (Vertex2 x' y) v) (f x)
 bY f (Box c (Vertex2 x y) v) = fmap (\y' -> Box c (Vertex2 x y') v) (f y)
 bX' f (Box c v (Vertex2 x y)) = fmap (\x' -> Box c v (Vertex2 x' y)) (f x)
-bY' f (Box c v (Vertex2 x y)) = fmap (\y' -> Box c v (Vertex2 x y')) (f y)
+bY' f (Box c v (Vertex2 x y)) = fmap (Box c v . Vertex2 x)           (f y)
 
 bW, bH, bW', bH' :: (Num a) => Simple Lens (Box c a) a
 bW f (Box c (Vertex2 x y) (Vertex2 x' y')) =
@@ -159,7 +159,6 @@ mainLoop = lift loadTexture >> loop
         textureBinding Texture2D $= Just name
         textureFilter Texture2D $= ((Linear', Nothing), Linear')
         textureFunction $= Replace
-        return ()
 
 bitmapTexture :: PixelComponent p => Bitmap p -> IO TextureObject
 bitmapTexture bitmap = withBitmap bitmap inner
