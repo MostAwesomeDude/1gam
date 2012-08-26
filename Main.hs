@@ -41,6 +41,10 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
+sBox :: Simple Lens (Sprite c v) (Box v)
+sBox f (Colored c b) = fmap (Colored c) (f b)
+sBox f (Textured t b) = fmap (Textured t) (f b)
+
 bX, bY, bX', bY' :: Simple Lens (Box a) a
 bX f (Box (Vertex2 x y) v) = fmap (\x' -> Box (Vertex2 x' y) v) (f x)
 bY f (Box (Vertex2 x y) v) = fmap (\y' -> Box (Vertex2 x y') v) (f y)
@@ -159,7 +163,7 @@ mainLoop = makeShine >> loop
     where
     makeShine = do
         texobj <- lift . loadTexture $ "shine2.png"
-        character .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 (-0.8) (-0.8)))
+        character .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
     box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
@@ -169,6 +173,18 @@ mainLoop = makeShine >> loop
                 s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
                 screen .= s
             KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
+            KeyDown (Keysym SDLK_DOWN _ _) -> do
+                character . sBox . bY -= 0.1
+                character . sBox . bY' -= 0.1
+            KeyDown (Keysym SDLK_UP _ _) -> do
+                character . sBox . bY += 0.1
+                character . sBox . bY' += 0.1
+            KeyDown (Keysym SDLK_LEFT _ _) -> do
+                character . sBox . bX -= 0.1
+                character . sBox . bX' -= 0.1
+            KeyDown (Keysym SDLK_RIGHT _ _) -> do
+                character . sBox . bX += 0.1
+                character . sBox . bX' += 0.1
             _ -> lift . putStrLn $ show event
         lift clearScreen
         lift . drawSprite $ box
