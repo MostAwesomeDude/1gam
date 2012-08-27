@@ -28,7 +28,7 @@ type Tiles = Array (Int, Int) Bool
 
 basicTiles :: Tiles
 basicTiles = array ((0, 0), (9, 9))
-    [((x, y), not $ y == 0) | x <- [0..9], y <- [0..9]]
+    [((x, y), y /= 0) | x <- [0..9], y <- [0..9]]
 
 data Box v = Box (Vertex2 v) (Vertex2 v)
     deriving (Show)
@@ -146,8 +146,8 @@ drawSprite (Textured texobj b) = do
 
 drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
-    let x' = -0.5 + (0.1 * (realToFrac x))
-        y' = -0.5 + (0.1 * (realToFrac y))
+    let x' = -0.5 + (0.1 * realToFrac x)
+        y' = -0.5 + (0.1 * realToFrac y)
         c = if tile then Color3 0 255 0 else Color3 255 0 0
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + 0.1) (y' + 0.1)))
     drawSprite box
