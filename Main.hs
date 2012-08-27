@@ -37,12 +37,12 @@ data Sprite c v = Colored (Color3 c) (Box v)
                 | Textured TextureObject (Box v)
     deriving (Show)
 
-data GlobalData = GlobalData { _screen    :: Surface
-                             , _timestamp :: Word32
-                             , _fps       :: Int
-                             , _character :: Sprite GLubyte GLfloat
-                             , _tiles     :: Tiles
-                             , _quitFlag  :: Bool }
+data GlobalData = GlobalData { _gdScreen    :: Surface
+                             , _gdTimestamp :: Word32
+                             , _gdFps       :: Int
+                             , _gdCharacter :: Sprite GLubyte GLfloat
+                             , _gdTiles     :: Tiles
+                             , _gdQuitFlag  :: Bool }
     deriving (Show)
 
 makeLenses ''GlobalData
@@ -69,12 +69,6 @@ bW' f (Box (Vertex2 x y) (Vertex2 x' y')) =
 bH' f (Box (Vertex2 x y) (Vertex2 x' y')) =
     fmap (\h -> Box (Vertex2 x (y' - h)) (Vertex2 x' y)) (f (y' - y))
 
-liift :: (MonadTrans t, Monad m) => (b -> m a) -> b -> t m a
-liift = (lift .)
-
-liiift :: (MonadTrans t, Monad m) => (b -> c -> m a) -> b -> c -> t m a
-liiift = ((lift .) .)
-
 -- Resize the viewport such that:
 --  * The smallest dimension still corresponds to at least [-1, 1]
 --  * The viewport is centered on (0, 0)
@@ -98,7 +92,7 @@ getInitialState = do
     return $ GlobalData screen 0 0 box basicTiles False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
-coordsAt w h dw dh i = let
+coordsAt w _ dw dh i = let
     w' = w `div` dw
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
@@ -154,8 +148,8 @@ drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -0.5 + (0.1 * (realToFrac x))
         y' = -0.5 + (0.1 * (realToFrac y))
-        color = if tile then Color3 0 255 0 else Color3 255 0 0
-        box = Colored color (Box (Vertex2 x' y') (Vertex2 (x' + 0.1) (y' + 0.1)))
+        c = if tile then Color3 0 255 0 else Color3 255 0 0
+        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + 0.1) (y' + 0.1)))
     drawSprite box
 
 finishFrame :: IO ()
@@ -166,20 +160,20 @@ mma new old = (19 * old + new) `div` 20
 
 updateTimestamp :: Loop
 updateTimestamp = do
-    ticks <- use timestamp
+    ticks <- use gdTimestamp
     ticks' <- lift getTicks
     let diff = ticks' - ticks
-    let fps' = fromIntegral $ 1000 `div` diff
-    adjusted <- fps <%= mma fps'
+    let fps = fromIntegral $ 1000 `div` diff
+    adjusted <- gdFps <%= mma fps
     lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show adjusted ++ ")"
-    timestamp .= ticks'
+    gdTimestamp .= ticks'
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = do
         texobj <- lift . loadTexture $ "shine2.png"
-        character .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
+        gdCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
     box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
@@ -187,30 +181,30 @@ mainLoop = makeShine >> loop
             NoEvent -> return ()
             VideoResize w h -> do
                 s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
-                screen .= s
-            KeyDown (Keysym SDLK_ESCAPE _ _) -> quitFlag .= True
+                gdScreen .= s
+            KeyDown (Keysym SDLK_ESCAPE _ _) -> gdQuitFlag .= True
             KeyDown (Keysym SDLK_DOWN _ _) -> do
-                character . sBox . bY -= 0.1
-                character . sBox . bY' -= 0.1
+                gdCharacter . sBox . bY -= 0.1
+                gdCharacter . sBox . bY' -= 0.1
             KeyDown (Keysym SDLK_UP _ _) -> do
-                character . sBox . bY += 0.1
-                character . sBox . bY' += 0.1
+                gdCharacter . sBox . bY += 0.1
+                gdCharacter . sBox . bY' += 0.1
             KeyDown (Keysym SDLK_LEFT _ _) -> do
-                character . sBox . bX -= 0.1
-                character . sBox . bX' -= 0.1
+                gdCharacter . sBox . bX -= 0.1
+                gdCharacter . sBox . bX' -= 0.1
             KeyDown (Keysym SDLK_RIGHT _ _) -> do
-                character . sBox . bX += 0.1
-                character . sBox . bX' += 0.1
+                gdCharacter . sBox . bX += 0.1
+                gdCharacter . sBox . bX' += 0.1
             _ -> lift . putStrLn $ show event
         lift clearScreen
         lift . drawSprite $ box
-        tiles' <- use tiles
-        lift . drawTiles $ tiles'
-        shine <- use character
+        tiles <- use gdTiles
+        lift . drawTiles $ tiles
+        shine <- use gdCharacter
         lift . drawSprite $ shine
         lift finishFrame
         updateTimestamp
-        q <- use quitFlag
+        q <- use gdQuitFlag
         unless q loop
 
 loadTexture :: FilePath -> IO TextureObject
