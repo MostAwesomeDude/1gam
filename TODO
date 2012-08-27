@@ -1,0 +1,2 @@
+* Tiles could be rendered with a VBO, pre-packed, and a texture atlas. This
+  will be necessary later on for good framerates.
