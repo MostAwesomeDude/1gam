@@ -5,6 +5,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
+import Data.Array
 import Data.Word
 
 import Codec.Image.STB
@@ -23,6 +24,12 @@ checkErrors = do
         then putStrLn "All clear!"
         else putStrLn ("Error: " ++ show es)
 
+type Tiles = Array (Int, Int) Bool
+
+basicTiles :: Tiles
+basicTiles = array ((0, 10), (0, 10))
+    [((x, y), if y == 0 then False else True) | x <- [0..9], y <- [0..9]]
+
 data Box v = Box (Vertex2 v) (Vertex2 v)
     deriving (Show)
 
@@ -34,6 +41,7 @@ data GlobalData = GlobalData { _screen    :: Surface
                              , _timestamp :: Word32
                              , _fps       :: Int
                              , _character :: Sprite GLubyte GLfloat
+                             , _tiles     :: Tiles
                              , _quitFlag  :: Bool }
     deriving (Show)
 
@@ -87,7 +95,7 @@ getInitialState :: IO GlobalData
 getInitialState = do
     screen <- resizeScreen 1 1
     let box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
-    return $ GlobalData screen 0 0 box False
+    return $ GlobalData screen 0 0 box basicTiles False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w h dw dh i = let

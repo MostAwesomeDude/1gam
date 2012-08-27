@@ -55,6 +55,7 @@ Executable working
                    , OpenGL
                    , SDL
                    , SDL-image
+                   , array
                    , bitmap
                    , bitmap-opengl
                    , containers
