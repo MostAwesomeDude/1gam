@@ -24,11 +24,44 @@ checkErrors = do
         then putStrLn "All clear!"
         else putStrLn ("Error: " ++ show es)
 
-type Tiles = Array (Int, Int) Bool
+data Tile = Sky | Ground
+    deriving (Eq, Show)
 
-basicTiles :: Tiles
-basicTiles = array ((0, 0), (9, 9))
-    [((x, y), y /= 0) | x <- [0..9], y <- [0..9]]
+type RawTiles = Array (Int, Int) Bool
+type Tiles = Array (Int, Int) Tile
+
+basicTiles :: RawTiles
+basicTiles = array ((0, 0), (15, 15)) xs
+    where
+    coords = [(x, y) | y <- [0..15], x <- [0..15]]
+    stuff = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0
+            ,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0
+            ,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0
+            ,0,0,0,0,0,1,1,1,0,1,1,1,0,0,0,0
+            ,0,1,1,0,0,1,1,1,0,1,1,1,0,0,0,0
+            ,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    xs = zip (reverse coords) (map toEnum stuff)
+
+convolve :: Bool -> Bool -> Bool -> Bool -> Bool -> Tile
+convolve center left right down up = Sky
+
+colorTiles :: RawTiles -> Tiles
+colorTiles rt = let
+    bounds' = bounds rt
+    check i e = if inRange bounds' i then e else True
+    l i = check i $ rt ! i
+    convolved (x, y) = convolve (l (x, y)) (l (x - 1, y)) (l (x + 1, y)) (l (x, y - 1)) (l (x, y + 1))
+    in array bounds' [((x, y), convolved (x, y)) | (x, y) <- range bounds']
 
 data Box v = Box (Vertex2 v) (Vertex2 v)
     deriving (Show)
@@ -41,7 +74,8 @@ data GlobalData = GlobalData { _gdScreen    :: Surface
                              , _gdTimestamp :: Word32
                              , _gdFps       :: Int
                              , _gdCharacter :: Sprite GLubyte GLfloat
-                             , _gdTiles     :: Tiles
+                             , _gdTiles     :: RawTiles
+                             , _gdShowTiles :: Bool
                              , _gdQuitFlag  :: Bool }
     deriving (Show)
 
@@ -89,7 +123,7 @@ getInitialState :: IO GlobalData
 getInitialState = do
     screen <- resizeScreen 1 1
     let box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
-    return $ GlobalData screen 0 0 box basicTiles False
+    return $ GlobalData screen 0 0 box basicTiles False False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -144,12 +178,20 @@ drawSprite (Textured texobj b) = do
         texCoord (TexCoord2 r s')
         vertex (Vertex2 x y')
 
+drawRawTiles :: RawTiles -> IO ()
+drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
+    let x' = -1 + (realToFrac x / 8)
+        y' = -1 + (realToFrac y / 8)
+        c = if tile then Color3 0 255 0 else Color3 255 0 0
+        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
+    drawSprite box
+
 drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
-    let x' = -0.5 + (0.1 * realToFrac x)
-        y' = -0.5 + (0.1 * realToFrac y)
-        c = if tile then Color3 0 255 0 else Color3 255 0 0
-        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + 0.1) (y' + 0.1)))
+    let x' = -1 + (realToFrac x / 8)
+        y' = -1 + (realToFrac y / 8)
+        c = if tile == Sky then Color3 0 0 255 else Color3 0 255 0
+        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
 finishFrame :: IO ()
@@ -183,6 +225,9 @@ mainLoop = makeShine >> loop
                 s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
                 gdScreen .= s
             KeyDown (Keysym SDLK_ESCAPE _ _) -> gdQuitFlag .= True
+            KeyDown (Keysym SDLK_t _ _) -> do
+                b <- use gdShowTiles
+                gdShowTiles .= not b
             KeyDown (Keysym SDLK_DOWN _ _) -> do
                 gdCharacter . sBox . bY -= 0.1
                 gdCharacter . sBox . bY' -= 0.1
@@ -198,8 +243,14 @@ mainLoop = makeShine >> loop
             _ -> lift . putStrLn $ show event
         lift clearScreen
         lift . drawSprite $ box
-        tiles <- use gdTiles
-        lift . drawTiles $ tiles
+        whether <- use gdShowTiles
+        if whether
+            then do
+                tiles <- use gdTiles
+                lift . drawTiles . colorTiles $ tiles
+            else do
+                tiles <- use gdTiles
+                lift . drawRawTiles $ tiles
         shine <- use gdCharacter
         lift . drawSprite $ shine
         lift finishFrame
