@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Array
+import qualified Data.Map as M
 import Data.Word
 
 import Codec.Image.STB
@@ -24,10 +25,20 @@ checkErrors = do
         then putStrLn "All clear!"
         else putStrLn ("Error: " ++ show es)
 
-data Tile = Sky | Ground
-    deriving (Eq, Show)
+data RawTile = Off | On
+    deriving (Eq, Enum, Ord, Show)
 
-type RawTiles = Array (Int, Int) Bool
+data Tile = Sky | Ground | Impass
+    deriving (Eq, Ord, Show)
+
+type RGB = Color3 GLubyte
+
+tileColors :: M.Map Tile RGB
+tileColors = M.fromList [(Sky, Color3 127 127 255)
+                        ,(Ground, Color3 0 255 63)
+                        ,(Impass, Color3 127 127 127)]
+
+type RawTiles = Array (Int, Int) RawTile
 type Tiles = Array (Int, Int) Tile
 
 basicTiles :: RawTiles
@@ -52,13 +63,16 @@ basicTiles = array ((0, 0), (15, 15)) xs
             ,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     xs = zip (reverse coords) (map toEnum stuff)
 
-convolve :: Bool -> Bool -> Bool -> Bool -> Bool -> Tile
-convolve center left right down up = Sky
+-- | Center, Left, Right, Down, Up
+convolve :: RawTile -> RawTile -> RawTile -> RawTile -> RawTile -> Tile
+convolve On  On On On On = Impass
+convolve On  _  _  _  _  = Ground
+convolve Off _  _  _  _  = Sky
 
 colorTiles :: RawTiles -> Tiles
 colorTiles rt = let
     bounds' = bounds rt
-    check i e = if inRange bounds' i then e else True
+    check i e = if inRange bounds' i then e else On
     l i = check i $ rt ! i
     convolved (x, y) = convolve (l (x, y)) (l (x - 1, y)) (l (x + 1, y)) (l (x, y - 1)) (l (x, y + 1))
     in array bounds' [((x, y), convolved (x, y)) | (x, y) <- range bounds']
@@ -182,7 +196,7 @@ drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
-        c = if tile then Color3 0 255 0 else Color3 255 0 0
+        c = if tile == On then Color3 0 255 0 else Color3 255 0 0
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
@@ -190,7 +204,9 @@ drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
-        c = if tile == Sky then Color3 0 0 255 else Color3 0 255 0
+        c = case M.lookup tile tileColors of
+                Just c' -> c'
+                Nothing -> Color3 255 255 255
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
