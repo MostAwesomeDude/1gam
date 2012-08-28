@@ -7,6 +7,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Array
 import qualified Data.Map as M
+import Data.Maybe
 import Data.Word
 
 import Codec.Image.STB
@@ -204,9 +205,7 @@ drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
-        c = case M.lookup tile tileColors of
-                Just c' -> c'
-                Nothing -> Color3 255 255 255
+        c = fromMaybe (Color3 255 255 255) $ M.lookup tile tileColors
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 

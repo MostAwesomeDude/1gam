@@ -65,4 +65,4 @@ Executable working
                    , transformers
 
   -- GHC compiler flags.
-  ghc-options:         -Wall -rtsopts
+  ghc-options:       -Wall -rtsopts -O2
