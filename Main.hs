@@ -15,6 +15,8 @@ import Data.Bitmap.OpenGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
+import Working.Color
+
 -- Because StateVar chose to override the name "get". :T
 getState :: HasGetter g => g a -> IO a
 getState = Graphics.Rendering.OpenGL.get
@@ -32,12 +34,10 @@ data RawTile = Off | On
 data Tile = Sky | Ground | Impass
     deriving (Eq, Ord, Show)
 
-type RGB = Color3 GLubyte
-
 tileColors :: M.Map Tile RGB
-tileColors = M.fromList [(Sky, Color3 127 127 255)
-                        ,(Ground, Color3 0 255 63)
-                        ,(Impass, Color3 127 127 127)]
+tileColors = M.fromList [ (Sky, skyBlue)
+                        , (Ground, grassGreen)
+                        , (Impass, stoneGray) ]
 
 type RawTiles = Array (Int, Int) RawTile
 type Tiles = Array (Int, Int) Tile
@@ -81,14 +81,14 @@ colorTiles rt = let
 data Box v = Box (Vertex2 v) (Vertex2 v)
     deriving (Show)
 
-data Sprite c v = Colored (Color3 c) (Box v)
-                | Textured TextureObject (Box v)
+data Sprite v = Colored RGB (Box v)
+              | Textured TextureObject (Box v)
     deriving (Show)
 
 data GlobalData = GlobalData { _gdScreen    :: Surface
                              , _gdTimestamp :: Word32
                              , _gdFps       :: Int
-                             , _gdCharacter :: Sprite GLubyte GLfloat
+                             , _gdCharacter :: Sprite GLfloat
                              , _gdTiles     :: RawTiles
                              , _gdShowTiles :: Bool
                              , _gdQuitFlag  :: Bool }
@@ -98,7 +98,7 @@ makeLenses ''GlobalData
 
 type Loop = StateT GlobalData IO ()
 
-sBox :: Simple Lens (Sprite c v) (Box v)
+sBox :: Simple Lens (Sprite v) (Box v)
 sBox f (Colored c b) = fmap (Colored c) (f b)
 sBox f (Textured t b) = fmap (Textured t) (f b)
 
@@ -137,7 +137,7 @@ resizeScreen w h = let
 getInitialState :: IO GlobalData
 getInitialState = do
     screen <- resizeScreen 1 1
-    let box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+    let box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     return $ GlobalData screen 0 0 box basicTiles False False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -151,7 +151,7 @@ clearScreen = do
     clearColor $= Color4 0.1 0.1 0.1 0.0
     clear [ColorBuffer]
 
-drawSprite :: Sprite GLubyte GLfloat -> IO ()
+drawSprite :: Sprite GLfloat -> IO ()
 drawSprite (Colored c b) = renderPrimitive Quads quad
     where
     x = b ^. bX
@@ -197,7 +197,7 @@ drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
-        c = if tile == On then Color3 0 255 0 else Color3 255 0 0
+        c = if tile == On then green else red
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
@@ -205,7 +205,7 @@ drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
-        c = fromMaybe (Color3 255 255 255) $ M.lookup tile tileColors
+        c = fromMaybe white $ M.lookup tile tileColors
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
@@ -231,7 +231,7 @@ mainLoop = makeShine >> loop
     makeShine = do
         texobj <- lift . loadTexture $ "shine2.png"
         gdCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
-    box = Colored (Color3 0 0 255) $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+    box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
         case event of
