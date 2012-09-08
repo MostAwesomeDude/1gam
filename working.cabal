@@ -59,7 +59,6 @@ Executable working
                    , bitmap
                    , bitmap-opengl
                    , containers
-                   , json
                    , lens
                    , stb-image
                    , transformers
