@@ -75,13 +75,19 @@ data Sprite v = Colored RGB (Box v)
               | Textured TextureObject (Box v)
     deriving (Show)
 
+data Timers = Timers { _tTimestamp :: Word32
+                     , _tDelta     :: Word32
+                     , _tFps       :: Float }
+    deriving (Show)
+
+makeLenses ''Timers
+
 data Globals = Globals { _gScreen    :: Surface
-                       , _gTimestamp :: Word32
-                       , _gFps       :: Int
                        , _gCharacter :: Sprite GLfloat
                        , _gTiles     :: RawTiles
                        , _gShowTiles :: Bool
-                       , _gQuitFlag  :: Bool }
+                       , _gQuitFlag  :: Bool
+                       , _gTimers    :: Timers }
     deriving (Show)
 
 makeLenses ''Globals
@@ -124,11 +130,14 @@ resizeScreen w h = let
         resizeViewport w h
         return screen
 
+makeTimers :: Timers
+makeTimers = Timers 0 0 0
+
 getInitialState :: IO Globals
 getInitialState = do
     screen <- resizeScreen 1 1
     let box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
-    return $ Globals screen 0 0 box basicTiles False False
+    return $ Globals screen box basicTiles True False makeTimers
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -194,18 +203,14 @@ drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
 
-mma :: Int -> Int -> Int
-mma new old = (19 * old + new) `div` 20
+mma :: Fractional a => a -> a -> a
+mma new old = (19 * old + new) / 20
 
-updateTimestamp :: Loop
-updateTimestamp = do
-    ticks <- use gTimestamp
-    ticks' <- lift getTicks
-    let diff = ticks' - ticks
-    let fps = fromIntegral $ 1000 `div` diff
-    adjusted <- gFps <%= mma fps
-    lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show adjusted ++ ")"
-    gTimestamp .= ticks'
+updateTimestamp :: Word32 -> Timers -> Timers
+updateTimestamp w t = let
+    delta = w - (t ^. tTimestamp)
+    fps = 1000 / (fromIntegral delta)
+    in tTimestamp .~ w $ tDelta .~ delta $ tFps %~ mma fps $ t
 
 handleEvent :: Event -> Globals -> Globals
 handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
@@ -249,7 +254,11 @@ mainLoop = makeShine >> loop
         shine <- use gCharacter
         lift . drawSprite $ shine
         lift finishFrame
-        updateTimestamp
+        ticks <- lift getTicks
+        focus gTimers . modify $ updateTimestamp ticks
+        fps <- use $ gTimers . tFps
+        delta <- use $ gTimers . tDelta
+        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         q <- use gQuitFlag
         unless q loop
 
