@@ -16,17 +16,7 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
 import Working.Color
-
--- Because StateVar chose to override the name "get". :T
-getState :: HasGetter g => g a -> IO a
-getState = Graphics.Rendering.OpenGL.get
-
-checkErrors :: IO ()
-checkErrors = do
-    es <- getState errors
-    if null es
-        then putStrLn "All clear!"
-        else putStrLn ("Error: " ++ show es)
+import Working.GL
 
 data RawTile = Off | On
     deriving (Eq, Enum, Ord, Show)
@@ -146,11 +136,6 @@ coordsAt w _ dw dh i = let
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
 
-clearScreen :: IO ()
-clearScreen = do
-    clearColor $= Color4 0.1 0.1 0.1 0.0
-    clear [ColorBuffer]
-
 drawSprite :: Sprite GLfloat -> IO ()
 drawSprite (Colored c b) = renderPrimitive Quads quad
     where
@@ -208,9 +193,6 @@ drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
         c = fromMaybe white $ M.lookup tile tileColors
         box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
     drawSprite box
-
-finishFrame :: IO ()
-finishFrame = glSwapBuffers
 
 mma :: Int -> Int -> Int
 mma new old = (19 * old + new) `div` 20
@@ -280,16 +262,6 @@ loadTexture path = do
             Left x  -> error x
             Right x -> x
     makeSimpleBitmapTexture b
-
-checkExtensions :: IO ()
-checkExtensions = let
-    required = ["ARB_texture_rectangle", "ARB_texture_non_power_of_two"]
-    f x = elem $ "GL_" ++ x
-    in do
-        exts <- getState glExtensions
-        forM_ required $ \x -> if f x exts
-            then putStrLn $ "Found extension " ++ x
-            else error $ "Need extension " ++ x
 
 actualMain :: IO ()
 actualMain = do
