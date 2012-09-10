@@ -75,18 +75,18 @@ data Sprite v = Colored RGB (Box v)
               | Textured TextureObject (Box v)
     deriving (Show)
 
-data GlobalData = GlobalData { _gdScreen    :: Surface
-                             , _gdTimestamp :: Word32
-                             , _gdFps       :: Int
-                             , _gdCharacter :: Sprite GLfloat
-                             , _gdTiles     :: RawTiles
-                             , _gdShowTiles :: Bool
-                             , _gdQuitFlag  :: Bool }
+data Globals = Globals { _gScreen    :: Surface
+                       , _gTimestamp :: Word32
+                       , _gFps       :: Int
+                       , _gCharacter :: Sprite GLfloat
+                       , _gTiles     :: RawTiles
+                       , _gShowTiles :: Bool
+                       , _gQuitFlag  :: Bool }
     deriving (Show)
 
-makeLenses ''GlobalData
+makeLenses ''Globals
 
-type Loop = StateT GlobalData IO ()
+type Loop = StateT Globals IO ()
 
 sBox :: Simple Lens (Sprite v) (Box v)
 sBox f (Colored c b) = fmap (Colored c) (f b)
@@ -124,11 +124,11 @@ resizeScreen w h = let
         resizeViewport w h
         return screen
 
-getInitialState :: IO GlobalData
+getInitialState :: IO Globals
 getInitialState = do
     screen <- resizeScreen 1 1
     let box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
-    return $ GlobalData screen 0 0 box basicTiles False False
+    return $ Globals screen 0 0 box basicTiles False False
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -199,60 +199,58 @@ mma new old = (19 * old + new) `div` 20
 
 updateTimestamp :: Loop
 updateTimestamp = do
-    ticks <- use gdTimestamp
+    ticks <- use gTimestamp
     ticks' <- lift getTicks
     let diff = ticks' - ticks
     let fps = fromIntegral $ 1000 `div` diff
-    adjusted <- gdFps <%= mma fps
+    adjusted <- gFps <%= mma fps
     lift . putStrLn $ "Ticks: " ++ show diff ++ " (FPS: " ++ show adjusted ++ ")"
-    gdTimestamp .= ticks'
+    gTimestamp .= ticks'
+
+handleEvent :: Event -> Globals -> Globals
+handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
+handleEvent (KeyDown (Keysym SDLK_t _ _)) = gShowTiles %~ not
+handleEvent _ = id
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = do
         texobj <- lift . loadTexture $ "shine2.png"
-        gdCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
+        gCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
     box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
         event <- lift pollEvent
+        modify $ handleEvent event
         case event of
-            NoEvent -> return ()
             VideoResize w h -> do
                 s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
-                gdScreen .= s
-            KeyDown (Keysym SDLK_ESCAPE _ _) -> gdQuitFlag .= True
-            KeyDown (Keysym SDLK_t _ _) -> do
-                b <- use gdShowTiles
-                gdShowTiles .= not b
+                gScreen .= s
             KeyDown (Keysym SDLK_DOWN _ _) -> do
-                gdCharacter . sBox . bY -= 0.1
-                gdCharacter . sBox . bY' -= 0.1
+                gCharacter . sBox . bY -= 0.1
+                gCharacter . sBox . bY' -= 0.1
             KeyDown (Keysym SDLK_UP _ _) -> do
-                gdCharacter . sBox . bY += 0.1
-                gdCharacter . sBox . bY' += 0.1
+                gCharacter . sBox . bY += 0.1
+                gCharacter . sBox . bY' += 0.1
             KeyDown (Keysym SDLK_LEFT _ _) -> do
-                gdCharacter . sBox . bX -= 0.1
-                gdCharacter . sBox . bX' -= 0.1
+                gCharacter . sBox . bX -= 0.1
+                gCharacter . sBox . bX' -= 0.1
             KeyDown (Keysym SDLK_RIGHT _ _) -> do
-                gdCharacter . sBox . bX += 0.1
-                gdCharacter . sBox . bX' += 0.1
+                gCharacter . sBox . bX += 0.1
+                gCharacter . sBox . bX' += 0.1
             _ -> lift . putStrLn $ show event
         lift clearScreen
         lift . drawSprite $ box
-        whether <- use gdShowTiles
+        whether <- use gShowTiles
+        tiles <- use gTiles
         if whether
-            then do
-                tiles <- use gdTiles
-                lift . drawTiles . colorTiles $ tiles
-            else do
-                tiles <- use gdTiles
-                lift . drawRawTiles $ tiles
-        shine <- use gdCharacter
+            then lift . drawTiles . colorTiles $ tiles
+            else lift . drawRawTiles $ tiles
+        shine <- use gCharacter
         lift . drawSprite $ shine
         lift finishFrame
         updateTimestamp
-        q <- use gdQuitFlag
+        q <- use gQuitFlag
         unless q loop
 
 loadTexture :: FilePath -> IO TextureObject
