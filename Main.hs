@@ -217,6 +217,31 @@ handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
 handleEvent (KeyDown (Keysym SDLK_t _ _)) = gShowTiles %~ not
 handleEvent _ = id
 
+handleEvents :: Loop
+handleEvents = do
+    event <- lift pollEvent
+    modify $ handleEvent event
+    case event of
+        NoEvent -> return ()
+        VideoResize w h -> do
+            s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
+            gScreen .= s
+        KeyDown (Keysym SDLK_DOWN _ _) -> do
+            gCharacter . sBox . bY -= 0.1
+            gCharacter . sBox . bY' -= 0.1
+        KeyDown (Keysym SDLK_UP _ _) -> do
+            gCharacter . sBox . bY += 0.1
+            gCharacter . sBox . bY' += 0.1
+        KeyDown (Keysym SDLK_LEFT _ _) -> do
+            gCharacter . sBox . bX -= 0.1
+            gCharacter . sBox . bX' -= 0.1
+        KeyDown (Keysym SDLK_RIGHT _ _) -> do
+            gCharacter . sBox . bX += 0.1
+            gCharacter . sBox . bX' += 0.1
+        _ -> lift . putStrLn $ show event
+    -- Continue until all events have been handled.
+    when (event /= NoEvent) handleEvents
+
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
@@ -225,25 +250,7 @@ mainLoop = makeShine >> loop
         gCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
     box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
-        event <- lift pollEvent
-        modify $ handleEvent event
-        case event of
-            VideoResize w h -> do
-                s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
-                gScreen .= s
-            KeyDown (Keysym SDLK_DOWN _ _) -> do
-                gCharacter . sBox . bY -= 0.1
-                gCharacter . sBox . bY' -= 0.1
-            KeyDown (Keysym SDLK_UP _ _) -> do
-                gCharacter . sBox . bY += 0.1
-                gCharacter . sBox . bY' += 0.1
-            KeyDown (Keysym SDLK_LEFT _ _) -> do
-                gCharacter . sBox . bX -= 0.1
-                gCharacter . sBox . bX' -= 0.1
-            KeyDown (Keysym SDLK_RIGHT _ _) -> do
-                gCharacter . sBox . bX += 0.1
-                gCharacter . sBox . bX' += 0.1
-            _ -> lift . putStrLn $ show event
+        handleEvents
         lift clearScreen
         lift . drawSprite $ box
         whether <- use gShowTiles
