@@ -75,6 +75,17 @@ data Sprite v = Colored RGB (Box v)
               | Textured TextureObject (Box v)
     deriving (Show)
 
+data Velocity v = Velocity { _vX, _vY :: v }
+    deriving (Show)
+
+makeLenses ''Velocity
+
+data Animation v = Animation { _aSprite   :: Sprite v
+                             , _aVelocity :: Velocity v }
+    deriving (Show)
+
+makeLenses ''Animation
+
 data Timers = Timers { _tTimestamp :: Word32
                      , _tDelta     :: Word32
                      , _tFps       :: Float }
@@ -83,7 +94,7 @@ data Timers = Timers { _tTimestamp :: Word32
 makeLenses ''Timers
 
 data Globals = Globals { _gScreen    :: Surface
-                       , _gCharacter :: Sprite GLfloat
+                       , _gCharacter :: Animation GLfloat
                        , _gTiles     :: RawTiles
                        , _gShowTiles :: Bool
                        , _gQuitFlag  :: Bool
@@ -130,13 +141,19 @@ resizeScreen w h = let
         resizeViewport w h
         return screen
 
+makeVelocity :: Num v => Velocity v
+makeVelocity = Velocity 0 0
+
+makeAnimation :: Num v => Sprite v -> Animation v
+makeAnimation s = Animation s makeVelocity
+
 makeTimers :: Timers
 makeTimers = Timers 0 0 0
 
 getInitialState :: IO Globals
 getInitialState = do
     screen <- resizeScreen 1 1
-    let box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+    let box = makeAnimation $ Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     return $ Globals screen box basicTiles True False makeTimers
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -227,30 +244,47 @@ handleEvents = do
             s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
             gScreen .= s
         KeyDown (Keysym SDLK_DOWN _ _) -> do
-            gCharacter . sBox . bY -= 0.1
-            gCharacter . sBox . bY' -= 0.1
+            gCharacter . aSprite . sBox . bY -= 0.1
+            gCharacter . aSprite . sBox . bY' -= 0.1
         KeyDown (Keysym SDLK_UP _ _) -> do
-            gCharacter . sBox . bY += 0.1
-            gCharacter . sBox . bY' += 0.1
+            gCharacter . aSprite . sBox . bY += 0.1
+            gCharacter . aSprite . sBox . bY' += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) -> do
-            gCharacter . sBox . bX -= 0.1
-            gCharacter . sBox . bX' -= 0.1
+            gCharacter . aSprite . sBox . bX -= 0.1
+            gCharacter . aSprite . sBox . bX' -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) -> do
-            gCharacter . sBox . bX += 0.1
-            gCharacter . sBox . bX' += 0.1
+            gCharacter . aSprite . sBox . bX += 0.1
+            gCharacter . aSprite . sBox . bX' += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
+
+gravitate :: Loop
+gravitate = do
+    delta <- use $ gTimers . tDelta
+    let dT = (realToFrac delta) / 1000
+    -- Integrate acceleration to get velocity.
+    gCharacter . aVelocity . vY -= 9.8 * dT
+    y <- use $ gCharacter . aVelocity . vY
+    -- Integrate velocity to get position.
+    gCharacter . aSprite . sBox . bY += y * dT
+    gCharacter . aSprite . sBox . bY' += y * dT
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = do
         texobj <- lift . loadTexture $ "shine2.png"
-        gCharacter .= Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7))
+        gCharacter .= makeAnimation (Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7)))
     box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
     loop = do
+        ticks <- lift getTicks
+        focus gTimers . modify $ updateTimestamp ticks
+        fps <- use $ gTimers . tFps
+        delta <- use $ gTimers . tDelta
+        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         handleEvents
+        gravitate
         lift clearScreen
         lift . drawSprite $ box
         whether <- use gShowTiles
@@ -258,14 +292,9 @@ mainLoop = makeShine >> loop
         if whether
             then lift . drawTiles . colorTiles $ tiles
             else lift . drawRawTiles $ tiles
-        shine <- use gCharacter
+        shine <- use $ gCharacter . aSprite
         lift . drawSprite $ shine
         lift finishFrame
-        ticks <- lift getTicks
-        focus gTimers . modify $ updateTimestamp ticks
-        fps <- use $ gTimers . tFps
-        delta <- use $ gTimers . tDelta
-        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         q <- use gQuitFlag
         unless q loop
 
