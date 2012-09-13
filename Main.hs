@@ -127,6 +127,13 @@ bW' f (Box (Vertex2 x y) (Vertex2 x' y')) =
 bH' f (Box (Vertex2 x y) (Vertex2 x' y')) =
     fmap (\h -> Box (Vertex2 x (y' - h)) (Vertex2 x' y)) (f (y' - y))
 
+-- Move a box.
+bX, bY :: Num a => Simple Lens (Box a) a
+bX f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\w -> Box (Vertex2 w y) (Vertex2 (w + x' - x) y')) (f x)
+bY f (Box (Vertex2 x y) (Vertex2 x' y')) =
+    fmap (\h -> Box (Vertex2 x h) (Vertex2 x' (h + y' - y))) (f y)
+
 -- Resize the viewport such that:
 --  * The smallest dimension still corresponds to at least [-1, 1]
 --  * The viewport is centered on (0, 0)
@@ -245,18 +252,14 @@ handleEvents = do
         VideoResize w h -> do
             s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
             gScreen .= s
-        KeyDown (Keysym SDLK_DOWN _ _) -> do
-            gCharacter . aSprite . sBox . bBottom -= 0.1
-            gCharacter . aSprite . sBox . bTop -= 0.1
-        KeyDown (Keysym SDLK_UP _ _) -> do
-            gCharacter . aSprite . sBox . bBottom += 0.1
-            gCharacter . aSprite . sBox . bTop += 0.1
-        KeyDown (Keysym SDLK_LEFT _ _) -> do
-            gCharacter . aSprite . sBox . bLeft -= 0.1
-            gCharacter . aSprite . sBox . bRight -= 0.1
-        KeyDown (Keysym SDLK_RIGHT _ _) -> do
-            gCharacter . aSprite . sBox . bLeft += 0.1
-            gCharacter . aSprite . sBox . bRight += 0.1
+        KeyDown (Keysym SDLK_DOWN _ _) ->
+            gCharacter . aSprite . sBox . bY -= 0.1
+        KeyDown (Keysym SDLK_UP _ _) ->
+            gCharacter . aSprite . sBox . bY += 0.1
+        KeyDown (Keysym SDLK_LEFT _ _) ->
+            gCharacter . aSprite . sBox . bX -= 0.1
+        KeyDown (Keysym SDLK_RIGHT _ _) ->
+            gCharacter . aSprite . sBox . bX += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
@@ -269,8 +272,7 @@ gravitate = do
     gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bBottom += y * dT
-    gCharacter . aSprite . sBox . bTop += y * dT
+    gCharacter . aSprite . sBox . bY += y * dT
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
