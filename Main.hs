@@ -109,13 +109,15 @@ sBox :: Simple Lens (Sprite v) (Box v)
 sBox f (Colored c b) = fmap (Colored c) (f b)
 sBox f (Textured t b) = fmap (Textured t) (f b)
 
-bX, bY, bX', bY' :: Simple Lens (Box a) a
-bX f (Box (Vertex2 x y) v) = fmap (\x' -> Box (Vertex2 x' y) v) (f x)
-bY f (Box (Vertex2 x y) v) = fmap (\y' -> Box (Vertex2 x y') v) (f y)
-bX' f (Box v (Vertex2 x y)) = fmap (\x' -> Box v (Vertex2 x' y)) (f x)
-bY' f (Box v (Vertex2 x y)) = fmap (Box v . Vertex2 x)           (f y)
+-- Resize a box by moving an edge.
+bLeft, bBottom, bRight, bTop :: Simple Lens (Box a) a
+bLeft f (Box (Vertex2 x y) v) = fmap (\x' -> Box (Vertex2 x' y) v) (f x)
+bBottom f (Box (Vertex2 x y) v) = fmap (\y' -> Box (Vertex2 x y') v) (f y)
+bRight f (Box v (Vertex2 x y)) = fmap (\x' -> Box v (Vertex2 x' y)) (f x)
+bTop f (Box v (Vertex2 x y)) = fmap (Box v . Vertex2 x)           (f y)
 
-bW, bH, bW', bH' :: (Num a) => Simple Lens (Box a) a
+-- Resize a box by changing its width or height.
+bW, bH, bW', bH' :: Num a => Simple Lens (Box a) a
 bW f (Box (Vertex2 x y) (Vertex2 x' y')) =
     fmap (\w -> Box (Vertex2 x y) (Vertex2 (x + w) y')) (f (x' - x))
 bH f (Box (Vertex2 x y) (Vertex2 x' y')) =
@@ -165,10 +167,10 @@ coordsAt w _ dw dh i = let
 drawSprite :: Sprite GLfloat -> IO ()
 drawSprite (Colored c b) = renderPrimitive Quads quad
     where
-    x = b ^. bX
-    y = b ^. bY
-    x' = b ^. bX'
-    y' = b ^. bY'
+    x = b ^. bLeft
+    y = b ^. bBottom
+    x' = b ^. bRight
+    y' = b ^. bTop
     quad = do
         color c
         vertex (Vertex2 x y)
@@ -180,10 +182,10 @@ drawSprite (Textured texobj b) = do
     renderPrimitive Quads quad
     disableTextures
     where
-    x = b ^. bX
-    y = b ^. bY
-    x' = b ^. bX'
-    y' = b ^. bY'
+    x = b ^. bLeft
+    y = b ^. bBottom
+    x' = b ^. bRight
+    y' = b ^. bTop
     r = 0 :: GLfloat
     s = 0 :: GLfloat
     r' = 1
@@ -244,17 +246,17 @@ handleEvents = do
             s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
             gScreen .= s
         KeyDown (Keysym SDLK_DOWN _ _) -> do
-            gCharacter . aSprite . sBox . bY -= 0.1
-            gCharacter . aSprite . sBox . bY' -= 0.1
+            gCharacter . aSprite . sBox . bBottom -= 0.1
+            gCharacter . aSprite . sBox . bTop -= 0.1
         KeyDown (Keysym SDLK_UP _ _) -> do
-            gCharacter . aSprite . sBox . bY += 0.1
-            gCharacter . aSprite . sBox . bY' += 0.1
+            gCharacter . aSprite . sBox . bBottom += 0.1
+            gCharacter . aSprite . sBox . bTop += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) -> do
-            gCharacter . aSprite . sBox . bX -= 0.1
-            gCharacter . aSprite . sBox . bX' -= 0.1
+            gCharacter . aSprite . sBox . bLeft -= 0.1
+            gCharacter . aSprite . sBox . bRight -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) -> do
-            gCharacter . aSprite . sBox . bX += 0.1
-            gCharacter . aSprite . sBox . bX' += 0.1
+            gCharacter . aSprite . sBox . bLeft += 0.1
+            gCharacter . aSprite . sBox . bRight += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
@@ -267,8 +269,8 @@ gravitate = do
     gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bY += y * dT
-    gCharacter . aSprite . sBox . bY' += y * dT
+    gCharacter . aSprite . sBox . bBottom += y * dT
+    gCharacter . aSprite . sBox . bTop += y * dT
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
