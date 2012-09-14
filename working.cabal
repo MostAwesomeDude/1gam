@@ -61,6 +61,7 @@ Executable working
                    , containers
                    , lens
                    , stb-image
+                   , tagged
                    , transformers
 
   -- GHC compiler flags.
