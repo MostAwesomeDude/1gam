@@ -211,7 +211,7 @@ mma new old = (19 * old + new) / 20
 updateTimestamp :: Word32 -> Timers -> Timers
 updateTimestamp w t = let
     delta = w - (t ^. tTimestamp)
-    fps = 1000 / (fromIntegral delta)
+    fps = 1000 / fromIntegral delta
     in tTimestamp .~ w $ tDelta .~ delta $ tFps %~ mma fps $ t
 
 handleEvent :: Event -> Globals -> Globals
@@ -243,7 +243,7 @@ handleEvents = do
 gravitate :: Loop
 gravitate = do
     delta <- use $ gTimers . tDelta
-    let dT = (realToFrac delta) / 1000
+    let dT = realToFrac delta / 1000
     -- Integrate acceleration to get velocity.
     gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gCharacter . aVelocity . vY
