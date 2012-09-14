@@ -188,23 +188,22 @@ drawSprite (Textured texobj b) = do
         texCoord (TexCoord2 r s')
         vertex (Vertex2 x y')
 
+drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
+drawTile (x, y) c = let
+    x' = -1 + (realToFrac x / 8)
+    y' = -1 + (realToFrac y / 8)
+    box = makeXYWH x' y' (1/8) (1/8)
+    in drawSprite $ Colored c box
+
 drawRawTiles :: RawTiles -> IO ()
-drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
-    let x' = -1 + (realToFrac x / 8)
-        y' = -1 + (realToFrac y / 8)
-        c = if tile == On then green else red
-        box = unwrapBox $ makeBox (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8)))
-        sprite = Colored c box
-    drawSprite sprite
+drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
+    c = if tile == On then green else red
+    in drawTile (x, y) c
 
 drawTiles :: Tiles -> IO ()
-drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
-    let x' = -1 + (realToFrac x / 8)
-        y' = -1 + (realToFrac y / 8)
-        c = fromMaybe white $ M.lookup tile tileColors
-        box = unwrapBox $ makeBox (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8)))
-        sprite = Colored c box
-    drawSprite sprite
+drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
+    c = fromMaybe white $ M.lookup tile tileColors
+    in drawTile (x, y) c
 
 mma :: Fractional a => a -> a -> a
 mma new old = (19 * old + new) / 20

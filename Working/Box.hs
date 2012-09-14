@@ -2,6 +2,7 @@ module Working.Box(
     Box(),
     pInter,
     makeBadBox, makeBox, unwrapBox,
+    makeXYWH,
     bLeft, bBottom, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY,
@@ -43,6 +44,13 @@ makeBox v1 v2 = validateBox $ makeBadBox v1 v2
 -- a good box.
 unwrapBox :: Maybe (Tagged Good (Box v)) -> Box v
 unwrapBox = untag . fromJust
+
+-- Make a valid box with width and height.
+-- This function will slap you hard if you specify zero width or height.
+makeXYWH :: (Ord v, Num v) => v -> v -> v -> v -> Box v
+makeXYWH x y w h
+    | w > 0 && h > 0 = Box (Vertex2 x y) (Vertex2 (x + w) (y + h))
+    | otherwise      = error "makeXYWH: Zero width or height"
 
 -- Resize a box by moving an edge.
 bLeft, bBottom, bRight, bTop :: Simple Lens (Box a) a
