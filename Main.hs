@@ -133,10 +133,12 @@ makeTimers :: Timers
 makeTimers = Timers 0 0 0
 
 getInitialState :: IO Globals
-getInitialState = do
+getInitialState = let
+    box = unwrapBox $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    in do
     screen <- resizeScreen 1 1
-    let box = makeAnimation $ Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
-    return $ Globals screen box basicTiles True False makeTimers
+    let anim = makeAnimation $ Colored blue box
+    return $ Globals screen anim basicTiles True False makeTimers
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -191,16 +193,18 @@ drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
         c = if tile == On then green else red
-        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
-    drawSprite box
+        box = unwrapBox $ makeBox (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8)))
+        sprite = Colored c box
+    drawSprite sprite
 
 drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> do
     let x' = -1 + (realToFrac x / 8)
         y' = -1 + (realToFrac y / 8)
         c = fromMaybe white $ M.lookup tile tileColors
-        box = Colored c (Box (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8))))
-    drawSprite box
+        box = unwrapBox $ makeBox (Vertex2 x' y') (Vertex2 (x' + (1 / 8)) (y' + (1 / 8)))
+        sprite = Colored c box
+    drawSprite sprite
 
 mma :: Fractional a => a -> a -> a
 mma new old = (19 * old + new) / 20
@@ -250,10 +254,12 @@ gravitate = do
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
-    makeShine = do
+    makeShine = let
+        box = unwrapBox $ makeBox (Vertex2 0.7 0.7) (Vertex2 0.8 0.8)
+        in do
         texobj <- lift . loadTexture $ "shine2.png"
-        gCharacter .= makeAnimation (Textured texobj (Box (Vertex2 0.8 0.8) (Vertex2 0.7 0.7)))
-    box = Colored blue $ Box (Vertex2 0.9 0.9) (Vertex2 (-0.9) (-0.9))
+        gCharacter .= makeAnimation (Textured texobj box)
+    box = Colored blue . unwrapBox $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     loop = do
         ticks <- lift getTicks
         focus gTimers . modify $ updateTimestamp ticks

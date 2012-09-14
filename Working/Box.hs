@@ -41,8 +41,8 @@ makeBox v1 v2 = validateBox $ makeBadBox v1 v2
 
 -- Unwrap a box. This will slap you in the face at runtime if you didn't make
 -- a good box.
-unwrapBox :: Maybe (Tagged Good (Box v)) -> Tagged Good (Box v)
-unwrapBox = fromJust
+unwrapBox :: Maybe (Tagged Good (Box v)) -> Box v
+unwrapBox = untag . fromJust
 
 -- Resize a box by moving an edge.
 bLeft, bBottom, bRight, bTop :: Simple Lens (Box a) a
