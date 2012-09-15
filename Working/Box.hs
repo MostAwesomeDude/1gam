@@ -1,8 +1,11 @@
+{-# LANGUAGE EmptyDataDecls #-}
 module Working.Box(
     Box(),
-    pInter,
-    makeBadBox, makeBox, unwrapBox,
+    GoodBox, BadBox,
+    pInter, bInter,
+    makeBadBox, makeBox, validateBox,
     makeXYWH,
+    bTag,
     bLeft, bBottom, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY,
@@ -16,41 +19,49 @@ import Graphics.Rendering.OpenGL
 data Box v = Box (Vertex2 v) (Vertex2 v)
     deriving (Show)
 
-data Good = Good
-    deriving (Show)
+data Good
+data Bad
 
-data Bad = Bad
-    deriving (Show)
+type GoodBox v = Tagged Good (Box v)
+type BadBox v = Tagged Bad (Box v)
 
 -- Whether two vertices would determine the lower-left and upper-right corners
 -- of a rectangle.
 pInter :: Ord v => Vertex2 v -> Vertex2 v -> Bool
 pInter (Vertex2 x1 y1) (Vertex2 x2 y2) = x1 < x2 && y1 < y2
 
+-- Whether two boxes intersect.
+-- The boxes have to be good.
+bInter :: Ord v => GoodBox v -> GoodBox v -> Bool
+bInter (Tagged (Box v1 v2)) (Tagged (Box v3 v4)) =
+    pInter v1 v4 && pInter v3 v2
+
 -- Make a possibly valid box.
-makeBadBox :: Vertex2 v -> Vertex2 v -> Tagged Bad (Box v)
+makeBadBox :: Vertex2 v -> Vertex2 v -> BadBox v
 makeBadBox v1 v2 = Tagged $ Box v1 v2
 
--- Validate a box.
-validateBox :: Ord v => Tagged Bad (Box v) -> Maybe (Tagged Good (Box v))
-validateBox (Tagged (Box v1 v2)) | pInter v1 v2 = Just . Tagged $ Box v1 v2
-                                 | otherwise    = Nothing
+-- Validate a box. This will slap you in the face at runtime if you didn't
+-- make a good box.
+validateBox :: (Ord v, Show v) => BadBox v -> GoodBox v
+validateBox b@(Tagged (Box v1 v2))
+    | pInter v1 v2 = Tagged $ Box v1 v2
+    | otherwise    = error $ "validateBox: Bad box " ++ show b
 
 -- Possibly make a valid box.
-makeBox :: Ord v => Vertex2 v -> Vertex2 v -> Maybe (Tagged Good (Box v))
+makeBox :: (Ord v, Show v) => Vertex2 v -> Vertex2 v -> GoodBox v
 makeBox v1 v2 = validateBox $ makeBadBox v1 v2
-
--- Unwrap a box. This will slap you in the face at runtime if you didn't make
--- a good box.
-unwrapBox :: Maybe (Tagged Good (Box v)) -> Box v
-unwrapBox = untag . fromJust
 
 -- Make a valid box with width and height.
 -- This function will slap you hard if you specify zero width or height.
-makeXYWH :: (Ord v, Num v) => v -> v -> v -> v -> Box v
+makeXYWH :: (Ord v, Num v) => v -> v -> v -> v -> GoodBox v
 makeXYWH x y w h
-    | w > 0 && h > 0 = Box (Vertex2 x y) (Vertex2 (x + w) (y + h))
+    | w > 0 && h > 0 = Tagged $ Box (Vertex2 x y) (Vertex2 (x + w) (y + h))
     | otherwise      = error "makeXYWH: Zero width or height"
+
+-- Lens to unwrap and rewrap a good box with its tag. Revalidates the box on
+-- setting.
+bTag :: (Ord a, Show a) => Simple Lens (GoodBox a) (Box a)
+bTag f (Tagged b) = fmap (\b' -> validateBox . Tagged $ b') (f b)
 
 -- Resize a box by moving an edge.
 bLeft, bBottom, bRight, bTop :: Simple Lens (Box a) a

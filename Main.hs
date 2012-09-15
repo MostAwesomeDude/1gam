@@ -69,8 +69,8 @@ colorTiles rt = let
     convolved (x, y) = convolve (l (x, y)) (l (x - 1, y)) (l (x + 1, y)) (l (x, y - 1)) (l (x, y + 1))
     in array bounds' [((x, y), convolved (x, y)) | (x, y) <- range bounds']
 
-data Sprite v = Colored RGB (Box v)
-              | Textured TextureObject (Box v)
+data Sprite v = Colored RGB (GoodBox v)
+              | Textured TextureObject (GoodBox v)
     deriving (Show)
 
 data Velocity v = Velocity { _vX, _vY :: v }
@@ -103,7 +103,7 @@ makeLenses ''Globals
 
 type Loop = StateT Globals IO ()
 
-sBox :: Simple Lens (Sprite v) (Box v)
+sBox :: Simple Lens (Sprite v) (GoodBox v)
 sBox f (Colored c b) = fmap (Colored c) (f b)
 sBox f (Textured t b) = fmap (Textured t) (f b)
 
@@ -134,7 +134,7 @@ makeTimers = Timers 0 0 0
 
 getInitialState :: IO Globals
 getInitialState = let
-    box = unwrapBox $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    box = makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     in do
     screen <- resizeScreen 1 1
     let anim = makeAnimation $ Colored blue box
@@ -149,10 +149,10 @@ coordsAt w _ dw dh i = let
 drawSprite :: Sprite GLfloat -> IO ()
 drawSprite (Colored c b) = renderPrimitive Quads quad
     where
-    x = b ^. bLeft
-    y = b ^. bBottom
-    x' = b ^. bRight
-    y' = b ^. bTop
+    x = b ^. bTag . bLeft
+    y = b ^. bTag . bBottom
+    x' = b ^. bTag . bRight
+    y' = b ^. bTag . bTop
     quad = do
         color c
         vertex (Vertex2 x y)
@@ -164,10 +164,10 @@ drawSprite (Textured texobj b) = do
     renderPrimitive Quads quad
     disableTextures
     where
-    x = b ^. bLeft
-    y = b ^. bBottom
-    x' = b ^. bRight
-    y' = b ^. bTop
+    x = b ^. bTag . bLeft
+    y = b ^. bTag . bBottom
+    x' = b ^. bTag . bRight
+    y' = b ^. bTag . bTop
     r = 0 :: GLfloat
     s = 0 :: GLfloat
     r' = 1
@@ -229,13 +229,13 @@ handleEvents = do
             s <- lift $ resizeScreen (fromIntegral w) (fromIntegral h)
             gScreen .= s
         KeyDown (Keysym SDLK_DOWN _ _) ->
-            gCharacter . aSprite . sBox . bY -= 0.1
+            gCharacter . aSprite . sBox . bTag . bY -= 0.1
         KeyDown (Keysym SDLK_UP _ _) ->
-            gCharacter . aSprite . sBox . bY += 0.1
+            gCharacter . aSprite . sBox . bTag . bY += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) ->
-            gCharacter . aSprite . sBox . bX -= 0.1
+            gCharacter . aSprite . sBox . bTag . bX -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gCharacter . aSprite . sBox . bX += 0.1
+            gCharacter . aSprite . sBox . bTag . bX += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
@@ -248,17 +248,17 @@ gravitate = do
     gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bY += y * dT
+    gCharacter . aSprite . sBox . bTag . bY += y * dT
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = let
-        box = unwrapBox $ makeBox (Vertex2 0.7 0.7) (Vertex2 0.8 0.8)
+        box = makeBox (Vertex2 0.7 0.7) (Vertex2 0.8 0.8)
         in do
         texobj <- lift . loadTexture $ "shine2.png"
         gCharacter .= makeAnimation (Textured texobj box)
-    box = Colored blue . unwrapBox $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    box = Colored blue $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     loop = do
         ticks <- lift getTicks
         focus gTimers . modify $ updateTimestamp ticks
