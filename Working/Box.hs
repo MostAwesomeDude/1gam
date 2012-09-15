@@ -12,7 +12,6 @@ module Working.Box(
 ) where
 
 import Control.Lens
-import Data.Maybe
 import Data.Tagged
 import Graphics.Rendering.OpenGL
 
