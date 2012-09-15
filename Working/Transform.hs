@@ -27,3 +27,12 @@ transformRef src dest = let
     fx = dest' ^. bRight / src' ^. bRight
     fy = dest' ^. bTop / src' ^. bTop
     in Transform fx fy ox oy
+
+-- Apply a transformation to a box, yielding a transformed box.
+transform :: (Fractional a, Ord a) => Transform a -> GoodBox a -> GoodBox a
+transform (Transform fx fy ox oy) b = let
+    -- First, the translation...
+    trans b = bTag . bX +~ ox $ bTag . bY +~ oy $ b
+    -- ...then, the scaling.
+    scale b = bTag . bW *~ fx $ bTag . bH *~ fy $ b
+    in scale . trans $ b
