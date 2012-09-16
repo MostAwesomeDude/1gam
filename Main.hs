@@ -18,6 +18,7 @@ import Graphics.UI.SDL as SDL
 import Working.Box
 import Working.Color
 import Working.GL
+import Working.Transform
 
 data RawTile = Off | On
     deriving (Eq, Enum, Ord, Show)
@@ -190,10 +191,9 @@ drawSprite (Textured texobj b) = do
 
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
-    x' = -1 + (realToFrac x / 8)
-    y' = -1 + (realToFrac y / 8)
-    box = makeXYWH x' y' (1/8) (1/8)
-    in drawSprite $ Colored c box
+    box = makeXYWH (realToFrac x) (realToFrac y) 1 1
+    f = transform (Translate (-1) (-1)) . transform (Scale (1/8) (1/8))
+    in drawSprite $ Colored c (f box)
 
 drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
