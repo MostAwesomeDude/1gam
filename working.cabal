@@ -59,7 +59,7 @@ Executable working
                    , bitmap
                    , bitmap-opengl
                    , containers
-                   , lens
+                   , lens <= 2.0
                    , stb-image
                    , tagged
                    , transformers
