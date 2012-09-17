@@ -8,7 +8,8 @@ module Working.Box(
     bTag,
     bLeft, bBottom, bRight, bTop,
     bW, bH, bW', bH',
-    bX, bY,
+    bX, bY, bXY,
+    scaleBox,
 ) where
 
 import Control.Lens
@@ -86,3 +87,16 @@ bX f (Box (Vertex2 x y) (Vertex2 x' y')) =
     fmap (\w -> Box (Vertex2 w y) (Vertex2 (w + x' - x) y')) (f x)
 bY f (Box (Vertex2 x y) (Vertex2 x' y')) =
     fmap (\h -> Box (Vertex2 x h) (Vertex2 x' (h + y' - y))) (f y)
+
+-- Move a box more efficiently.
+bXY :: Num a => Simple Lens (Box a) (a, a)
+bXY f (Box (Vertex2 x y) (Vertex2 x' y')) = let
+    f' (w, h) = Box (Vertex2 w h) (Vertex2 (w + x' - x) (h + y' - y))
+    in fmap f' (f (x, y))
+
+-- Scale a box.
+scaleBox :: Num v => v -> v -> GoodBox v -> GoodBox v
+scaleBox 0 _ _ = error "scaleBox: Zero width"
+scaleBox _ 0 _ = error "scaleBox: Zero height"
+scaleBox sx sy (Tagged (Box (Vertex2 x1 y1) (Vertex2 x2 y2))) =
+    Tagged $ Box (Vertex2 (x1 * sx) (y1 * sy)) (Vertex2 (x2 * sx) (y2 * sy))
