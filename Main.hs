@@ -262,7 +262,7 @@ mainLoop = makeShine >> loop
     box = Colored blue $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     loop = do
         ticks <- lift getTicks
-        focus gTimers . modify $ updateTimestamp ticks
+        gTimers %= updateTimestamp ticks
         fps <- use $ gTimers . tFps
         delta <- use $ gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"

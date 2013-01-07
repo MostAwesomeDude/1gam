@@ -95,7 +95,7 @@ bXY f (Box (Vertex2 x y) (Vertex2 x' y')) = let
     in fmap f' (f (x, y))
 
 -- Scale a box.
-scaleBox :: Num v => v -> v -> GoodBox v -> GoodBox v
+scaleBox :: (Eq v, Num v) => v -> v -> GoodBox v -> GoodBox v
 scaleBox 0 _ _ = error "scaleBox: Zero width"
 scaleBox _ 0 _ = error "scaleBox: Zero height"
 scaleBox sx sy (Tagged (Box (Vertex2 x1 y1) (Vertex2 x2 y2))) =
