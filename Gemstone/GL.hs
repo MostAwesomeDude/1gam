@@ -28,3 +28,11 @@ clearScreen = do
 
 finishFrame :: IO ()
 finishFrame = glSwapBuffers
+
+-- | Resize the viewport such that:
+--    * The smallest dimension still corresponds to at least [-1, 1]
+--    * The viewport is centered on (0, 0)
+resizeViewport :: GLsizei -> GLsizei -> IO ()
+resizeViewport w h
+    | w > h     = viewport $= (Position ((w - h) `div` 2) 0, Size h h)
+    | otherwise = viewport $= (Position 0 ((h - w) `div` 2), Size w w)
