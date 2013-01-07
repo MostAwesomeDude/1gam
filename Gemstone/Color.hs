@@ -9,7 +9,8 @@ red = Color3 255 0 0
 green = Color3 0 255 0
 blue = Color3 0 0 255
 
-white :: RGB
+black, white :: RGB
+black = Color3 0 0 0
 white = Color3 255 255 255
 
 skyBlue, grassGreen, stoneGray :: RGB
