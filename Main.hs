@@ -218,7 +218,7 @@ handleEvents = do
     modify $ handleEvent event
     case event of
         NoEvent -> return ()
-        VideoResize w h -> do
+        VideoResize w h ->
             gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
         KeyDown (Keysym SDLK_DOWN _ _) ->
             gCharacter . aSprite . sBox . bTag . bY -= 0.1
