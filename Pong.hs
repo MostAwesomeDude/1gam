@@ -38,15 +38,15 @@ data Timers = Timers { _tTimestamp :: Word32
 
 makeLenses ''Timers
 
-data Globals = Globals { _gScreen    :: Surface
-                       , _gCharacter :: Animation GLfloat
-                       , _gQuitFlag  :: Bool
-                       , _gTimers    :: Timers }
+data Gems = Gems { _gScreen    :: Surface
+                 , _gCharacter :: Animation GLfloat
+                 , _gQuitFlag  :: Bool
+                 , _gTimers    :: Timers }
     deriving (Show)
 
-makeLenses ''Globals
+makeLenses ''Gems
 
-type Loop = StateT Globals IO ()
+type Loop = StateT Gems IO ()
 
 resizeScreen :: GLsizei -> GLsizei -> IO Surface
 resizeScreen w h = let
@@ -65,13 +65,13 @@ makeAnimation s = Animation s makeVelocity
 makeTimers :: Timers
 makeTimers = Timers 0 0 0
 
-getInitialState :: IO Globals
+getInitialState :: IO Gems
 getInitialState = let
     box = makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     in do
     screen <- resizeScreen 1 1
     let anim = makeAnimation $ Colored blue box
-    return $ Globals screen anim False makeTimers
+    return $ Gems screen anim False makeTimers
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -88,7 +88,7 @@ updateTimestamp w t = let
     fps = 1000 / fromIntegral delta
     in tTimestamp .~ w $ tDelta .~ delta $ tFps %~ mma fps $ t
 
-handleEvent :: Event -> Globals -> Globals
+handleEvent :: Event -> Gems -> Gems
 handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
 handleEvent _ = id
 
