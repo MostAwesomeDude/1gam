@@ -46,7 +46,14 @@ data Gems = Gems { _gScreen    :: Surface
 
 makeLenses ''Gems
 
-type Loop = StateT Gems IO ()
+gems :: Simple Lens (Gems, a) Gems
+gems = _1
+
+data Globals = Globals { _gBall :: Sprite GLfloat }
+
+makeLenses ''Globals
+
+type Loop = StateT (Gems, Globals) IO ()
 
 resizeScreen :: GLsizei -> GLsizei -> IO Surface
 resizeScreen w h = let
@@ -73,6 +80,9 @@ getInitialState = let
     let anim = makeAnimation $ Colored blue box
     return $ Gems screen anim False makeTimers
 
+makeGlobals :: Globals
+makeGlobals = Globals $ Colored black $ makeBox (Vertex2 0 0) (Vertex2 0.1 0.1)
+
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
     w' = w `div` dw
@@ -95,32 +105,32 @@ handleEvent _ = id
 handleEvents :: Loop
 handleEvents = do
     event <- lift pollEvent
-    modify $ handleEvent event
+    gems %= handleEvent event
     case event of
         NoEvent -> return ()
         VideoResize w h ->
-            gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
+            gems . gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
         KeyDown (Keysym SDLK_DOWN _ _) ->
-            gCharacter . aSprite . sBox . bTag . bY -= 0.1
+            gems . gCharacter . aSprite . sBox . bTag . bY -= 0.1
         KeyDown (Keysym SDLK_UP _ _) ->
-            gCharacter . aSprite . sBox . bTag . bY += 0.1
+            gems . gCharacter . aSprite . sBox . bTag . bY += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) ->
-            gCharacter . aSprite . sBox . bTag . bX -= 0.1
+            gems . gCharacter . aSprite . sBox . bTag . bX -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gCharacter . aSprite . sBox . bTag . bX += 0.1
+            gems . gCharacter . aSprite . sBox . bTag . bX += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
 
 gravitate :: Loop
 gravitate = do
-    delta <- use $ gTimers . tDelta
+    delta <- use $ gems . gTimers . tDelta
     let dT = realToFrac delta / 1000
     -- Integrate acceleration to get velocity.
-    gCharacter . aVelocity . vY -= 9.8 * dT
-    y <- use $ gCharacter . aVelocity . vY
+    gems . gCharacter . aVelocity . vY -= 9.8 * dT
+    y <- use $ gems . gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bTag . bY += y * dT
+    gems . gCharacter . aSprite . sBox . bTag . bY += y * dT
 
 mainLoop :: Loop
 mainLoop = loop
@@ -128,23 +138,25 @@ mainLoop = loop
     box = Colored white $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
     loop = do
         ticks <- lift getTicks
-        gTimers %= updateTimestamp ticks
-        fps <- use $ gTimers . tFps
-        delta <- use $ gTimers . tDelta
+        gems . gTimers %= updateTimestamp ticks
+        fps <- use $ gems . gTimers . tFps
+        delta <- use $ gems . gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         handleEvents
         gravitate
         lift clearScreen
         lift . drawSprite $ box
+        ball <- use $ _2 . gBall
+        lift . drawSprite $ ball
         lift finishFrame
-        q <- use gQuitFlag
+        q <- use $ gems . gQuitFlag
         unless q loop
 
 actualMain :: IO ()
 actualMain = do
     initial <- getInitialState
     checkExtensions
-    _ <- runStateT mainLoop initial
+    _ <- runStateT mainLoop (initial, makeGlobals)
     return ()
 
 main :: IO ()
