@@ -1,5 +1,5 @@
 {-# LANGUAGE EmptyDataDecls #-}
-module Working.Box(
+module Gemstone.Box (
     Box(),
     GoodBox, BadBox,
     pInter, bInter,

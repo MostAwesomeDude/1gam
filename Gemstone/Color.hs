@@ -1,4 +1,4 @@
-module Working.Color where
+module Gemstone.Color where
 
 import Graphics.Rendering.OpenGL
 

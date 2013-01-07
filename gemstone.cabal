@@ -2,7 +2,7 @@
 -- see
 -- http://www.haskell.org/cabal/release/cabal-latest/doc/users-guide/authors.html#pkg-descr.
 -- The name of the package.
-Name:                working
+Name:                gemstone
 
 -- The package version. See the Haskell package versioning policy
 -- (http://www.haskell.org/haskellwiki/Package_versioning_policy) for
@@ -59,7 +59,7 @@ Executable working
                    , bitmap
                    , bitmap-opengl
                    , containers
-                   , lens <= 2.0
+                   , lens
                    , stb-image
                    , tagged
                    , transformers

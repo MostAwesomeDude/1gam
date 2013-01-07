@@ -1,4 +1,4 @@
-module Working.GL where
+module Gemstone.GL where
 
 import Control.Monad
 import Graphics.Rendering.OpenGL

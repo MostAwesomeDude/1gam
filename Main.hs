@@ -15,9 +15,9 @@ import Data.Bitmap.OpenGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
-import Working.Box
-import Working.Color
-import Working.GL
+import Gemstone.Box
+import Gemstone.Color
+import Gemstone.GL
 
 data RawTile = Off | On
     deriving (Eq, Enum, Ord, Show)
