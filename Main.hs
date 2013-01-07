@@ -18,6 +18,7 @@ import Graphics.UI.SDL as SDL
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
+import Gemstone.Sprite
 
 data RawTile = Off | On
     deriving (Eq, Enum, Ord, Show)
@@ -69,10 +70,6 @@ colorTiles rt = let
     convolved (x, y) = convolve (l (x, y)) (l (x - 1, y)) (l (x + 1, y)) (l (x, y - 1)) (l (x, y + 1))
     in array bounds' [((x, y), convolved (x, y)) | (x, y) <- range bounds']
 
-data Sprite v = Colored RGB (GoodBox v)
-              | Textured TextureObject (GoodBox v)
-    deriving (Show)
-
 data Velocity v = Velocity { _vX, _vY :: v }
     deriving (Show)
 
@@ -102,10 +99,6 @@ data Globals = Globals { _gScreen    :: Surface
 makeLenses ''Globals
 
 type Loop = StateT Globals IO ()
-
-sBox :: Simple Lens (Sprite v) (GoodBox v)
-sBox f (Colored c b) = fmap (Colored c) (f b)
-sBox f (Textured t b) = fmap (Textured t) (f b)
 
 resizeScreen :: GLsizei -> GLsizei -> IO Surface
 resizeScreen w h = let
@@ -137,48 +130,6 @@ coordsAt w _ dw dh i = let
     w' = w `div` dw
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
-
-drawSprite :: Sprite GLfloat -> IO ()
-drawSprite (Colored c b) = renderPrimitive Quads quad
-    where
-    x = b ^. bTag . bLeft
-    y = b ^. bTag . bBottom
-    x' = b ^. bTag . bRight
-    y' = b ^. bTag . bTop
-    quad = do
-        color c
-        vertex (Vertex2 x y)
-        vertex (Vertex2 x' y)
-        vertex (Vertex2 x' y')
-        vertex (Vertex2 x y')
-drawSprite (Textured texobj b) = do
-    enableTextures
-    renderPrimitive Quads quad
-    disableTextures
-    where
-    x = b ^. bTag . bLeft
-    y = b ^. bTag . bBottom
-    x' = b ^. bTag . bRight
-    y' = b ^. bTag . bTop
-    r = 0 :: GLfloat
-    s = 0 :: GLfloat
-    r' = 1
-    s' = 1
-    enableTextures = do
-        texture Texture2D $= Enabled
-        activeTexture $= TextureUnit 0
-        textureBinding Texture2D $= Just texobj
-        textureFunction $= Replace
-    disableTextures = texture Texture2D $= Disabled
-    quad = do
-        texCoord (TexCoord2 r s)
-        vertex (Vertex2 x y)
-        texCoord (TexCoord2 r' s)
-        vertex (Vertex2 x' y)
-        texCoord (TexCoord2 r' s')
-        vertex (Vertex2 x' y')
-        texCoord (TexCoord2 r s')
-        vertex (Vertex2 x y')
 
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
