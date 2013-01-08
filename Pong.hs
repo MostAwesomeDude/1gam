@@ -71,21 +71,21 @@ makeAnimation s = Animation s makeVelocity
 
 move :: (Num v, Ord v, Show v) => Animation v -> Animation v
 move (Animation s v@(Velocity dx dy)) = Animation s' v
-    where s' = s & sBox . bTag . bX +~ dx & sBox . bTag . bY +~ dy
+    where s' = s & sBox . bXY %~ (\(x, y) -> (x + dx, y + dy))
 
 makeTimers :: Timers
 makeTimers = Timers 0 0 0
 
 getInitialState :: IO Gems
 getInitialState = let
-    box = makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    b = BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
     in do
     screen <- resizeScreen 1 1
-    let anim = makeAnimation $ Colored blue box
+    let anim = makeAnimation $ Colored blue b
     return $ Gems screen anim False makeTimers
 
 makeGlobals :: Globals
-makeGlobals = Globals $ Colored black $ makeBox (Vertex2 0 0) (Vertex2 0.1 0.1)
+makeGlobals = Globals $ Colored black $ makeXYWHValid 0 0 0.1 0.1
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -115,13 +115,13 @@ handleEvents = do
         VideoResize w h ->
             gems . gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
         KeyDown (Keysym SDLK_DOWN _ _) ->
-            gems . gCharacter . aSprite . sBox . bTag . bY -= 0.1
+            gems . gCharacter . aSprite . sBox . bY -= 0.1
         KeyDown (Keysym SDLK_UP _ _) ->
-            gems . gCharacter . aSprite . sBox . bTag . bY += 0.1
+            gems . gCharacter . aSprite . sBox . bY += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) ->
-            gems . gCharacter . aSprite . sBox . bTag . bX -= 0.1
+            gems . gCharacter . aSprite . sBox . bX -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gems . gCharacter . aSprite . sBox . bTag . bX += 0.1
+            gems . gCharacter . aSprite . sBox . bX += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
@@ -134,12 +134,12 @@ gravitate = do
     gems . gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gems . gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gems . gCharacter . aSprite . sBox . bTag . bY += y * dT
+    gems . gCharacter . aSprite . sBox . bY += y * dT
 
 mainLoop :: Loop
 mainLoop = loop
     where
-    box = Colored white $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    bg = Colored white $ BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
@@ -149,7 +149,7 @@ mainLoop = loop
         handleEvents
         gravitate
         lift clearScreen
-        lift . drawSprite $ box
+        lift . drawSprite $ bg
         ball <- use $ _2 . gBall
         lift . drawSprite $ ball
         lift finishFrame
