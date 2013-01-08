@@ -49,7 +49,7 @@ makeLenses ''Gems
 gems :: Simple Lens (Gems, a) Gems
 gems = _1
 
-data Globals = Globals { _gBall :: Sprite GLfloat }
+data Globals = Globals { _gBall :: Animation GLfloat }
 
 makeLenses ''Globals
 
@@ -85,7 +85,11 @@ getInitialState = let
     return $ Gems screen anim False makeTimers
 
 makeGlobals :: Globals
-makeGlobals = Globals $ Colored black $ makeXYWHValid 0 0 0.1 0.1
+makeGlobals = Globals ball
+    where
+    ball = Animation s v
+    v = Velocity 0.1 0.1
+    s = Colored black $ makeXYWHValid 0 0 0.1 0.1
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -150,7 +154,7 @@ mainLoop = loop
         gravitate
         lift clearScreen
         lift . drawSprite $ bg
-        ball <- use $ _2 . gBall
+        Animation ball _ <- _2 . gBall <%= move
         lift . drawSprite $ ball
         lift finishFrame
         q <- use $ gems . gQuitFlag
