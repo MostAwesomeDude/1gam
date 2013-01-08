@@ -1,6 +1,6 @@
 {-# LANGUAGE EmptyDataDecls, TemplateHaskell #-}
 module Gemstone.Box (
-    Box(), BoxLike(..), unBox,
+    Box(), BoxLike(..), unBox, box,
     pInter, bInter,
     makeXYWH,
     bLeft, bBottom, bRight, bTop,
