@@ -69,6 +69,10 @@ makeVelocity = Velocity 0 0
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s makeVelocity
 
+move :: (Num v, Ord v, Show v) => Animation v -> Animation v
+move (Animation s v@(Velocity dx dy)) = Animation s' v
+    where s' = s & sBox . bTag . bX +~ dx & sBox . bTag . bY +~ dy
+
 makeTimers :: Timers
 makeTimers = Timers 0 0 0
 
