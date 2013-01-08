@@ -2,7 +2,7 @@
 module Gemstone.Box (
     Box(), BoxLike(..), unBox, box,
     pInter, bInter,
-    makeXYWH,
+    makeXYWH, makeXYWHValid,
     bLeft, bBottom, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY, bXY,

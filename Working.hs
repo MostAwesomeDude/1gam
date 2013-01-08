@@ -119,10 +119,10 @@ makeTimers = Timers 0 0 0
 
 getInitialState :: IO Globals
 getInitialState = let
-    box = makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+    b = BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
     in do
     screen <- resizeScreen 1 1
-    let anim = makeAnimation $ Colored blue box
+    let anim = makeAnimation $ Colored blue b
     return $ Globals screen anim basicTiles True False makeTimers
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -134,10 +134,10 @@ coordsAt w _ dw dh i = let
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
     f (x, y) = (x - 1, y - 1)
-    box = makeXYWH (realToFrac x) (realToFrac y) 1 1
-    box' = scaleBox (1/8) (1/8) box
-    box'' = bTag . bXY %~ f $ box'
-    in drawSprite $ Colored c box''
+    b = makeXYWHValid (realToFrac x) (realToFrac y) 1 1
+    b' = scaleBox (1/8) (1/8) b
+    b'' = b' & bXY %~ f
+    in drawSprite $ Colored c b''
 
 drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
@@ -172,13 +172,13 @@ handleEvents = do
         VideoResize w h ->
             gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
         KeyDown (Keysym SDLK_DOWN _ _) ->
-            gCharacter . aSprite . sBox . bTag . bY -= 0.1
+            gCharacter . aSprite . sBox . bY -= 0.1
         KeyDown (Keysym SDLK_UP _ _) ->
-            gCharacter . aSprite . sBox . bTag . bY += 0.1
+            gCharacter . aSprite . sBox . bY += 0.1
         KeyDown (Keysym SDLK_LEFT _ _) ->
-            gCharacter . aSprite . sBox . bTag . bX -= 0.1
+            gCharacter . aSprite . sBox . bX -= 0.1
         KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gCharacter . aSprite . sBox . bTag . bX += 0.1
+            gCharacter . aSprite . sBox . bX += 0.1
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
@@ -191,17 +191,17 @@ gravitate = do
     gCharacter . aVelocity . vY -= 9.8 * dT
     y <- use $ gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bTag . bY += y * dT
+    gCharacter . aSprite . sBox . bY += y * dT
 
 mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = let
-        box = makeBox (Vertex2 0.7 0.7) (Vertex2 0.8 0.8)
+        b = BoxLike 0.7 0.7 0.8 0.8 ^?! box
         in do
         texobj <- lift . loadTexture $ "shine2.png"
-        gCharacter .= makeAnimation (Textured texobj box)
-    box = Colored blue $ makeBox (Vertex2 (-0.9) (-0.9)) (Vertex2 0.9 0.9)
+        gCharacter .= makeAnimation (Textured texobj b)
+    bg = Colored blue $ BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
     loop = do
         ticks <- lift getTicks
         gTimers %= updateTimestamp ticks
@@ -211,7 +211,7 @@ mainLoop = makeShine >> loop
         handleEvents
         gravitate
         lift clearScreen
-        lift . drawSprite $ box
+        lift . drawSprite $ bg
         whether <- use gShowTiles
         tiles <- use gTiles
         if whether
