@@ -65,9 +65,14 @@ makeVelocity = Velocity 0 0
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s makeVelocity
 
-move :: (Num v, Ord v, Show v) => Animation v -> Animation v
-move (Animation s v@(Velocity dx dy)) = Animation s' v
-    where s' = s & sBox . bXY %~ (\(x, y) -> (x + dx, y + dy))
+-- | Chop up a duration according to the delta of a timer.
+dt :: Fractional a => Timers -> a -> a
+dt timers x = delta * x / 1000
+    where delta = fromIntegral $ timers ^. tDelta
+
+move :: (Num v, Ord v, Show v) => v -> Animation v -> Animation v
+move delta (Animation s v@(Velocity dx dy)) = Animation s' v
+    where s' = s & sBox . bXY %~ (\(x, y) -> (x + delta * dx, y + delta * dy))
 
 getInitialState :: IO Gems
 getInitialState = let
@@ -84,7 +89,7 @@ makeGlobals :: Globals
 makeGlobals = Globals ball paddle
     where
     ball = Animation s v
-    v = Velocity 0.05 0.05
+    v = Velocity 0.2 0.2
     s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
     paddle = animate . (Colored black) $ makeXYWHValid (-0.88) (-0.1) 0.01 0.2
 
@@ -126,7 +131,8 @@ mainLoop = loop
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         handleEvents
         lift clearScreen
-        Animation ball _ <- _2 . gBall <%= move
+        delta <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
+        Animation ball _ <- _2 . gBall <%= move delta
         Animation paddle _ <- use $ _2 . gPaddle
         zoom (_2 . gBall) $ do
             y <- uses (aSprite . sBox . bY) $ \x -> abs x >= 0.9
