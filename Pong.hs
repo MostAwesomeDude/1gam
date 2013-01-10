@@ -18,6 +18,7 @@ import Graphics.UI.SDL as SDL
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
+import Gemstone.Maths
 import Gemstone.Sprite
 
 data Velocity v = Velocity { _vX, _vY :: v }
@@ -102,9 +103,6 @@ coordsAt w _ dw dh i = let
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
 
-mma :: Fractional a => a -> a -> a
-mma new old = (19 * old + new) / 20
-
 updateTimestamp :: Word32 -> Timers -> Timers
 updateTimestamp w t = let
     delta = w - (t ^. tTimestamp)
@@ -131,16 +129,6 @@ handleEvents = do
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
 
-gravitate :: Loop
-gravitate = do
-    delta <- use $ gems . gTimers . tDelta
-    let dT = realToFrac delta / 1000
-    -- Integrate acceleration to get velocity.
-    gems . gCharacter . aVelocity . vY -= 9.8 * dT
-    y <- use $ gems . gCharacter . aVelocity . vY
-    -- Integrate velocity to get position.
-    gems . gCharacter . aSprite . sBox . bY += y * dT
-
 mainLoop :: Loop
 mainLoop = loop
     where
@@ -152,7 +140,6 @@ mainLoop = loop
         delta <- use $ gems . gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
         handleEvents
-        gravitate
         lift clearScreen
         Animation ball _ <- _2 . gBall <%= move
         Animation paddle _ <- use $ _2 . gPaddle

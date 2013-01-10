@@ -50,6 +50,7 @@ Library
   exposed-modules:   Gemstone.Box
                    , Gemstone.Color
                    , Gemstone.GL
+                   , Gemstone.Maths
                    , Gemstone.Sprite
   
   -- Packages needed in order to build this package.
