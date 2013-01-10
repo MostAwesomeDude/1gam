@@ -92,7 +92,7 @@ makeGlobals :: Globals
 makeGlobals = Globals ball paddle
     where
     ball = Animation s v
-    v = Velocity 0.1 0.1
+    v = Velocity 0.05 0.05
     s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
     paddle = animate . (Colored black) $ makeXYWHValid (-0.88) (-0.1) 0.01 0.2
 
@@ -155,12 +155,13 @@ mainLoop = loop
         gravitate
         lift clearScreen
         Animation ball _ <- _2 . gBall <%= move
+        Animation paddle _ <- use $ _2 . gPaddle
         zoom (_2 . gBall) $ do
             y <- uses (aSprite . sBox . bY) $ \x -> abs x >= 0.9
             when y $ aVelocity .vY %= negate
             x <- uses (aSprite . sBox . bX) $ \x -> abs x >= 0.9
-            when x $ aVelocity .vX %= negate
-        Animation paddle _ <- use $ _2 . gPaddle
+            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ paddle ^. sBox
+            when (x || paddled) $ aVelocity .vX %= negate
         lift . drawSprites $ [bg, ball, paddle]
         lift finishFrame
         q <- use $ gems . gQuitFlag
