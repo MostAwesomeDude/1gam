@@ -2,7 +2,7 @@
 module Gemstone.Box (
     Box(), BoxLike(..), unBox, box,
     pInter, bInter,
-    makeXYWH, makeXYWHValid,
+    makeXYWH, makeXYWHValid, makeXYXYValid,
     bLeft, bBottom, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY, bXY,
@@ -56,6 +56,14 @@ makeXYWHValid :: (Ord v, Num v) => v -> v -> v -> v -> Box v
 makeXYWHValid x y w h = case makeXYWH x y w h ^? box of
     Just b -> b
     Nothing -> error "makeXYWHValid: Zero width or height"
+
+-- | Make a valid box.
+--
+--   Same signature as BoxLike, but making a Box.
+makeXYXYValid :: (Ord v, Num v) => v -> v -> v -> v -> Box v
+makeXYXYValid x1 y1 x2 y2 = case BoxLike x1 y1 x2 y2 ^? box of
+    Just b -> b
+    Nothing -> error "makeXYXYValid: Zero width or height"
 
 -- | Resize a box by moving an edge.
 --
