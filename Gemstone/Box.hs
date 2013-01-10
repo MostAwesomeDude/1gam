@@ -92,7 +92,7 @@ bX, bY :: Num a => Simple Lens (Box a) a
 bX f (Box (BoxLike x1 y1 x2 y2)) =
     fmap (\x' -> Box (BoxLike x' y1 (x' + x2 - x1) y2)) (f x1)
 bY f (Box (BoxLike x1 y1 x2 y2)) =
-    fmap (\y' -> Box (BoxLike x1 y1 x2 (y' + y2 - y1))) (f y1)
+    fmap (\y' -> Box (BoxLike x1 y' x2 (y' + y2 - y1))) (f y1)
 
 -- Move a box more efficiently.
 bXY :: Num a => Simple Lens (Box a) (a, a)
