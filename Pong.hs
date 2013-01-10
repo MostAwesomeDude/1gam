@@ -94,7 +94,7 @@ makeGlobals = Globals ball paddle
     ball = Animation s v
     v = Velocity 0.1 0.1
     s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
-    paddle = animate . (Colored black) $ makeXYWHValid 0 0 0.01 0.2
+    paddle = animate . (Colored black) $ makeXYWHValid (-0.88) (-0.1) 0.01 0.2
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -124,13 +124,9 @@ handleEvents = do
         VideoResize w h ->
             gems . gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
         KeyDown (Keysym SDLK_DOWN _ _) ->
-            gems . gCharacter . aSprite . sBox . bY -= 0.1
+            _2 . gPaddle . aSprite . sBox . bY -= 0.05
         KeyDown (Keysym SDLK_UP _ _) ->
-            gems . gCharacter . aSprite . sBox . bY += 0.1
-        KeyDown (Keysym SDLK_LEFT _ _) ->
-            gems . gCharacter . aSprite . sBox . bX -= 0.1
-        KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gems . gCharacter . aSprite . sBox . bX += 0.1
+            _2 . gPaddle . aSprite . sBox . bY += 0.05
         _ -> lift . putStrLn $ show event
     -- Continue until all events have been handled.
     when (event /= NoEvent) handleEvents
