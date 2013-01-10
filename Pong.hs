@@ -78,7 +78,7 @@ makeTimers = Timers 0 0 0
 
 getInitialState :: IO Gems
 getInitialState = let
-    b = BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
+    b = makeXYXYValid (-0.9) (-0.9) 0.9 0.9
     in do
     screen <- resizeScreen 1 1
     let anim = makeAnimation $ Colored blue b
@@ -143,7 +143,7 @@ gravitate = do
 mainLoop :: Loop
 mainLoop = loop
     where
-    bg = Colored white $ BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
+    bg = Colored white $ makeXYXYValid (-0.9) (-0.9) 0.9 0.9
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
