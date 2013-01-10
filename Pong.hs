@@ -20,6 +20,7 @@ import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Maths
 import Gemstone.Sprite
+import Gemstone.Timers
 
 data Velocity v = Velocity { _vX, _vY :: v }
     deriving (Show)
@@ -31,13 +32,6 @@ data Animation v = Animation { _aSprite   :: Sprite v
     deriving (Show)
 
 makeLenses ''Animation
-
-data Timers = Timers { _tTimestamp :: Word32
-                     , _tDelta     :: Word32
-                     , _tFps       :: Float }
-    deriving (Show)
-
-makeLenses ''Timers
 
 data Gems = Gems { _gScreen    :: Surface
                  , _gCharacter :: Animation GLfloat
@@ -75,9 +69,6 @@ move :: (Num v, Ord v, Show v) => Animation v -> Animation v
 move (Animation s v@(Velocity dx dy)) = Animation s' v
     where s' = s & sBox . bXY %~ (\(x, y) -> (x + dx, y + dy))
 
-makeTimers :: Timers
-makeTimers = Timers 0 0 0
-
 getInitialState :: IO Gems
 getInitialState = let
     b = makeXYXYValid (-0.9) (-0.9) 0.9 0.9
@@ -102,12 +93,6 @@ coordsAt w _ dw dh i = let
     w' = w `div` dw
     (y, x) = i `divMod` w'
     in (x * dw, y * dh)
-
-updateTimestamp :: Word32 -> Timers -> Timers
-updateTimestamp w t = let
-    delta = w - (t ^. tTimestamp)
-    fps = 1000 / fromIntegral delta
-    in tTimestamp .~ w $ tDelta .~ delta $ tFps %~ mma fps $ t
 
 handleEvent :: Event -> Gems -> Gems
 handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
