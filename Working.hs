@@ -119,7 +119,7 @@ makeTimers = Timers 0 0 0
 
 getInitialState :: IO Globals
 getInitialState = let
-    b = BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
+    b = makeXYXYValid (-0.9) (-0.9) 0.9 0.9
     in do
     screen <- resizeScreen 1 1
     let anim = makeAnimation $ Colored blue b
@@ -197,11 +197,11 @@ mainLoop :: Loop
 mainLoop = makeShine >> loop
     where
     makeShine = let
-        b = BoxLike 0.7 0.7 0.8 0.8 ^?! box
+        b = makeXYXYValid 0.7 0.7 0.8 0.8
         in do
         texobj <- lift . loadTexture $ "shine2.png"
         gCharacter .= makeAnimation (Textured texobj b)
-    bg = Colored blue $ BoxLike (-0.9) (-0.9) 0.9 0.9 ^?! box
+    bg = Colored blue $ makeXYXYValid (-0.9) (-0.9) 0.9 0.9
     loop = do
         ticks <- lift getTicks
         gTimers %= updateTimestamp ticks
