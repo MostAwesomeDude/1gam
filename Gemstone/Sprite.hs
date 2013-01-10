@@ -57,3 +57,6 @@ drawSprite (Textured texobj b) = do
         vertex (Vertex2 x' y')
         texCoord (TexCoord2 r s')
         vertex (Vertex2 x y')
+
+drawSprites :: [Sprite GLfloat] -> IO ()
+drawSprites = mapM_ drawSprite
