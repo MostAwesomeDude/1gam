@@ -18,6 +18,7 @@ import Graphics.UI.SDL as SDL
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
+import Gemstone.Maths
 import Gemstone.Sprite
 
 data RawTile = Off | On
@@ -148,9 +149,6 @@ drawTiles :: Tiles -> IO ()
 drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
     c = fromMaybe white $ M.lookup tile tileColors
     in drawTile (x, y) c
-
-mma :: Fractional a => a -> a -> a
-mma new old = (19 * old + new) / 20
 
 updateTimestamp :: Word32 -> Timers -> Timers
 updateTimestamp w t = let
