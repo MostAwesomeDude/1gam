@@ -18,8 +18,10 @@ import Graphics.UI.SDL as SDL
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
+import Gemstone.Loop
 import Gemstone.Maths
 import Gemstone.Sprite
+import Gemstone.Timers
 
 data RawTile = Off | On
     deriving (Eq, Enum, Ord, Show)
@@ -82,32 +84,12 @@ data Animation v = Animation { _aSprite   :: Sprite v
 
 makeLenses ''Animation
 
-data Timers = Timers { _tTimestamp :: Word32
-                     , _tDelta     :: Word32
-                     , _tFps       :: Float }
-    deriving (Show)
-
-makeLenses ''Timers
-
-data Globals = Globals { _gScreen    :: Surface
-                       , _gCharacter :: Animation GLfloat
+data Globals = Globals { _gCharacter :: Animation GLfloat
                        , _gTiles     :: RawTiles
-                       , _gShowTiles :: Bool
-                       , _gQuitFlag  :: Bool
-                       , _gTimers    :: Timers }
+                       , _gShowTiles :: Bool }
     deriving (Show)
 
 makeLenses ''Globals
-
-type Loop = StateT Globals IO ()
-
-resizeScreen :: GLsizei -> GLsizei -> IO Surface
-resizeScreen w h = let
-    flags = [OpenGL, DoubleBuf, Resizable]
-    in do
-        screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
-        resizeViewport w h
-        return screen
 
 makeVelocity :: Num v => Velocity v
 makeVelocity = Velocity 0 0
@@ -115,16 +97,11 @@ makeVelocity = Velocity 0 0
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s makeVelocity
 
-makeTimers :: Timers
-makeTimers = Timers 0 0 0
-
-getInitialState :: IO Globals
+getInitialState :: Globals
 getInitialState = let
     b = makeXYXYValid (-0.9) (-0.9) 0.9 0.9
-    in do
-    screen <- resizeScreen 1 1
-    let anim = makeAnimation $ Colored blue b
-    return $ Globals screen anim basicTiles True False makeTimers
+    anim = makeAnimation $ Colored blue b
+    in Globals anim basicTiles True
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -150,75 +127,61 @@ drawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
     c = fromMaybe white $ M.lookup tile tileColors
     in drawTile (x, y) c
 
-updateTimestamp :: Word32 -> Timers -> Timers
-updateTimestamp w t = let
-    delta = w - (t ^. tTimestamp)
-    fps = 1000 / fromIntegral delta
-    in tTimestamp .~ w $ tDelta .~ delta $ tFps %~ mma fps $ t
+eventHandler :: Event -> StateT Globals IO ()
+eventHandler event = case event of
+    NoEvent -> return ()
+    KeyDown (Keysym SDLK_DOWN _ _) ->
+        gCharacter . aSprite . sBox . bY -= 0.1
+    KeyDown (Keysym SDLK_UP _ _) ->
+        gCharacter . aSprite . sBox . bY += 0.1
+    KeyDown (Keysym SDLK_LEFT _ _) ->
+        gCharacter . aSprite . sBox . bX -= 0.1
+    KeyDown (Keysym SDLK_RIGHT _ _) ->
+        gCharacter . aSprite . sBox . bX += 0.1
+    KeyDown (Keysym SDLK_t _ _) ->
+        gShowTiles %= not
+    _ -> lift . putStrLn $ show event
 
-handleEvent :: Event -> Globals -> Globals
-handleEvent (KeyDown (Keysym SDLK_ESCAPE _ _)) = gQuitFlag .~ True
-handleEvent (KeyDown (Keysym SDLK_t _ _)) = gShowTiles %~ not
-handleEvent _ = id
-
-handleEvents :: Loop
-handleEvents = do
-    event <- lift pollEvent
-    modify $ handleEvent event
-    case event of
-        NoEvent -> return ()
-        VideoResize w h ->
-            gScreen <~ lift (resizeScreen (fromIntegral w) (fromIntegral h))
-        KeyDown (Keysym SDLK_DOWN _ _) ->
-            gCharacter . aSprite . sBox . bY -= 0.1
-        KeyDown (Keysym SDLK_UP _ _) ->
-            gCharacter . aSprite . sBox . bY += 0.1
-        KeyDown (Keysym SDLK_LEFT _ _) ->
-            gCharacter . aSprite . sBox . bX -= 0.1
-        KeyDown (Keysym SDLK_RIGHT _ _) ->
-            gCharacter . aSprite . sBox . bX += 0.1
-        _ -> lift . putStrLn $ show event
-    -- Continue until all events have been handled.
-    when (event /= NoEvent) handleEvents
-
-gravitate :: Loop
+gravitate :: Loop Globals
 gravitate = do
-    delta <- use $ gTimers . tDelta
+    delta <- use $ gems . gTimers . tDelta
     let dT = realToFrac delta / 1000
     -- Integrate acceleration to get velocity.
-    gCharacter . aVelocity . vY -= 9.8 * dT
-    y <- use $ gCharacter . aVelocity . vY
+    _2 . gCharacter . aVelocity . vY -= 9.8 * dT
+    y <- use $ _2 . gCharacter . aVelocity . vY
     -- Integrate velocity to get position.
-    gCharacter . aSprite . sBox . bY += y * dT
+    _2 . gCharacter . aSprite . sBox . bY += y * dT
 
-mainLoop :: Loop
+mainLoop :: Loop Globals
 mainLoop = makeShine >> loop
     where
+    makeShine :: Loop Globals
     makeShine = let
         b = makeXYXYValid 0.7 0.7 0.8 0.8
         in do
         texobj <- lift . loadTexture $ "shine2.png"
-        gCharacter .= makeAnimation (Textured texobj b)
+        _2 . gCharacter .= makeAnimation (Textured texobj b)
     bg = Colored blue $ makeXYXYValid (-0.9) (-0.9) 0.9 0.9
+    loop :: Loop Globals
     loop = do
         ticks <- lift getTicks
-        gTimers %= updateTimestamp ticks
-        fps <- use $ gTimers . tFps
-        delta <- use $ gTimers . tDelta
+        gems . gTimers %= updateTimestamp ticks
+        fps <- use $ gems . gTimers . tFps
+        delta <- use $ gems . gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
-        handleEvents
+        handleEvents eventHandler
         gravitate
         lift clearScreen
         lift . drawSprite $ bg
-        whether <- use gShowTiles
-        tiles <- use gTiles
+        whether <- use $ _2 . gShowTiles
+        tiles <- use $ _2 . gTiles
         if whether
             then lift . drawTiles . colorTiles $ tiles
             else lift . drawRawTiles $ tiles
-        shine <- use $ gCharacter . aSprite
+        shine <- use $ _2 . gCharacter . aSprite
         lift . drawSprite $ shine
         lift finishFrame
-        q <- use gQuitFlag
+        q <- use $ gems . gQuitFlag
         unless q loop
 
 loadTexture :: FilePath -> IO TextureObject
@@ -231,9 +194,9 @@ loadTexture path = do
 
 actualMain :: IO ()
 actualMain = do
-    initial <- getInitialState
+    initial <- getInitialGems
     checkExtensions
-    _ <- runStateT mainLoop initial
+    _ <- runStateT mainLoop (initial, getInitialState)
     return ()
 
 main :: IO ()

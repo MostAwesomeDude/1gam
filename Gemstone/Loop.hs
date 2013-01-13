@@ -21,6 +21,9 @@ data Gems = Gems { _gScreen    :: Surface
 
 makeLenses ''Gems
 
+gems :: Simple Lens (Gems, a) Gems
+gems = _1
+
 resizeScreen :: GLsizei -> GLsizei -> IO Surface
 resizeScreen w h = let
     flags = [OpenGL, DoubleBuf, Resizable]
