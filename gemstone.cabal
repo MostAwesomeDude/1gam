@@ -50,6 +50,7 @@ Library
   exposed-modules:   Gemstone.Box
                    , Gemstone.Color
                    , Gemstone.GL
+                   , Gemstone.Loop
                    , Gemstone.Maths
                    , Gemstone.Sprite
                    , Gemstone.Timers
