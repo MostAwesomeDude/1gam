@@ -74,7 +74,7 @@ makeGlobals = Globals ball paddle
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
-    paddle = animate . (Colored black) $ makeXYWHValid (-0.88) (-0.1) 0.01 0.2
+    paddle = animate . (Colored black) $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
@@ -94,7 +94,7 @@ eventHandler event = case event of
 mainLoop :: Loop Globals
 mainLoop = loop
     where
-    bg = Colored white $ makeXYXYValid (-0.9) (-0.9) 0.9 0.9
+    bg = Colored white $ makeXYXYValid (-1) (-1) 1 1
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
