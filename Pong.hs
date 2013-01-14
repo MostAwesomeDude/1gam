@@ -34,21 +34,10 @@ data Animation v = Animation { _aSprite   :: Sprite v
 
 makeLenses ''Animation
 
-gems :: Simple Lens (Gems, a) Gems
-gems = _1
-
 data Globals = Globals { _gBall :: Animation GLfloat
                        , _gPaddle :: Animation GLfloat }
 
 makeLenses ''Globals
-
-resizeScreen :: GLsizei -> GLsizei -> IO Surface
-resizeScreen w h = let
-    flags = [OpenGL, DoubleBuf, Resizable]
-    in do
-        screen <- setVideoMode (fromIntegral w) (fromIntegral h) 32 flags
-        resizeViewport w h
-        return screen
 
 makeVelocity :: Num v => Velocity v
 makeVelocity = Velocity 0 0
@@ -86,9 +75,13 @@ eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_DOWN _ _) ->
-        gPaddle . aSprite . sBox . bY -= 0.05
+        gPaddle . aVelocity . vY .= -1
     KeyDown (Keysym SDLK_UP _ _) ->
-        gPaddle . aSprite . sBox . bY += 0.05
+        gPaddle . aVelocity . vY .= 1
+    KeyUp (Keysym SDLK_DOWN _ _) ->
+        gPaddle . aVelocity . vY .= 0
+    KeyUp (Keysym SDLK_UP _ _) ->
+        gPaddle . aVelocity . vY .= 0
     _ -> lift . putStrLn $ show event
 
 mainLoop :: Loop Globals
@@ -105,7 +98,7 @@ mainLoop = loop
         lift clearScreen
         delta <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
         Animation ball _ <- _2 . gBall <%= move delta
-        Animation paddle _ <- use $ _2 . gPaddle
+        Animation paddle _ <- _2 . gPaddle <%= move delta
         zoom (_2 . gBall) $ do
             y <- uses (aSprite . sBox . bY) $ \x -> abs x >= 0.9
             when y $ aVelocity .vY %= negate
