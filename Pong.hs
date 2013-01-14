@@ -74,7 +74,7 @@ makeGlobals = Globals ball paddle
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
-    paddle = animate . (Colored black) $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
+    paddle = animate . Colored black $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
 coordsAt w _ dw dh i = let
