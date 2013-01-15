@@ -63,14 +63,8 @@ makeGlobals = Globals ball paddle
     where
     ball = Animation s v
     v = Velocity 0.2 0.2
-    s = Colored black $ makeXYWHValid 0.3 0.6 0.1 0.1
+    s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
     paddle = animate . Colored black $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
-
-coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
-coordsAt w _ dw dh i = let
-    w' = w `div` dw
-    (y, x) = i `divMod` w'
-    in (x * dw, y * dh)
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
@@ -101,11 +95,21 @@ mainLoop = loop
         Animation ball _ <- _2 . gBall <%= move delta
         Animation paddle _ <- _2 . gPaddle <%= move delta
         zoom (_2 . gBall) $ do
-            y <- uses (aSprite . sBox . bY) $ \x -> abs x >= 0.9
-            when y $ aVelocity .vY %= negate
-            x <- uses (aSprite . sBox . bX) $ \x -> abs x >= 0.9
+            -- First, check for the top and bottom bounds of the arena.
+            collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= (-1))
+            when collidesBot $ aVelocity . vY %= abs
+            collidesTop <- uses (aSprite . sBox . remit box . bTop) $ (>= 1)
+            when collidesTop $ aVelocity . vY %= negate . abs
+            -- And the right-hand side, for now.
+            x <- uses (aSprite . sBox . remit box . bRight) $ (>= 1)
+            when x $ aVelocity . vX %= negate . abs
+            -- Then check for collisions with the paddle. Any paddle collision
+            -- should successfully get the ball heading the other direction,
+            -- regardless of intersection depth; this is to prevent situations
+            -- where the ball might get stuck inside the paddle, negating
+            -- every frame but never breaking free.
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ paddle ^. sBox
-            when (x || paddled) $ aVelocity .vX %= negate
+            when paddled $ aVelocity . vX %= abs
         lift . drawSprites $ [bg, ball, paddle]
         lift finishFrame
         q <- use $ gems . gQuitFlag
