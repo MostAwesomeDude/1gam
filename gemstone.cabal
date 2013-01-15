@@ -58,6 +58,7 @@ Library
   
   -- Packages needed in order to build this package.
   Build-depends:     base >= 4 && < 5
+                   , FTGL >= 1.333
                    , OpenGL
                    , SDL
                    , SDL-image
@@ -67,7 +68,6 @@ Library
                    , containers
                    , lens
                    , stb-image
-                   , tagged
                    , transformers
 
   -- GHC compiler flags.
