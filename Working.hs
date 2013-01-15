@@ -20,6 +20,7 @@ import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Loop
 import Gemstone.Maths
+import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
 
@@ -192,12 +193,5 @@ loadTexture path = do
             Right x -> x
     makeSimpleBitmapTexture b
 
-actualMain :: IO ()
-actualMain = do
-    initial <- getInitialGems
-    checkExtensions
-    _ <- runStateT mainLoop (initial, getInitialState)
-    return ()
-
 main :: IO ()
-main = withInit [InitEverything] actualMain
+main = gemstoneMain getInitialState mainLoop
