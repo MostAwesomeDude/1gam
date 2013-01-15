@@ -3,7 +3,7 @@ module Gemstone.Box (
     Box(), BoxLike(..), unBox, box,
     pInter, bInter,
     makeXYWH, makeXYWHValid, makeXYXYValid,
-    bLeft, bBottom, bRight, bTop,
+    bLeft, bBot, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY, bXY,
     scaleBox,
@@ -68,9 +68,9 @@ makeXYXYValid x1 y1 x2 y2 = case BoxLike x1 y1 x2 y2 ^? box of
 -- | Resize a box by moving an edge.
 --
 --   Inherently unsafe.
-bLeft, bBottom, bRight, bTop :: Simple Lens (BoxLike a) a
+bLeft, bBot, bRight, bTop :: Simple Lens (BoxLike a) a
 bLeft   = bx1
-bBottom = by1
+bBot    = by1
 bRight  = bx2
 bTop    = by2
 

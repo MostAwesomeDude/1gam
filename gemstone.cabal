@@ -52,6 +52,7 @@ Library
                    , Gemstone.GL
                    , Gemstone.Loop
                    , Gemstone.Maths
+                   , Gemstone.Main
                    , Gemstone.Sprite
                    , Gemstone.Timers
   

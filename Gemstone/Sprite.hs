@@ -19,7 +19,7 @@ drawSprite (Colored c b) = renderPrimitive Quads quad
     where
     rbox = remit box
     x = b ^. rbox . bLeft
-    y = b ^. rbox . bBottom
+    y = b ^. rbox . bBot
     x' = b ^. rbox . bRight
     y' = b ^. rbox . bTop
     quad = do
@@ -35,7 +35,7 @@ drawSprite (Textured texobj b) = do
     where
     rbox = remit box
     x = b ^. rbox . bLeft
-    y = b ^. rbox . bBottom
+    y = b ^. rbox . bBot
     x' = b ^. rbox . bRight
     y' = b ^. rbox . bTop
     r = 0 :: GLfloat
