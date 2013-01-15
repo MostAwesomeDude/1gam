@@ -20,6 +20,7 @@ import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Loop
 import Gemstone.Maths
+import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
 
@@ -110,12 +111,5 @@ mainLoop = loop
         q <- use $ gems . gQuitFlag
         unless q loop
 
-actualMain :: IO ()
-actualMain = do
-    initial <- getInitialGems
-    checkExtensions
-    _ <- runStateT mainLoop (initial, makeGlobals)
-    return ()
-
 main :: IO ()
-main = withInit [InitEverything] actualMain
+main = gemstoneMain makeGlobals mainLoop
