@@ -30,9 +30,9 @@ finishFrame :: IO ()
 finishFrame = glSwapBuffers
 
 -- | Resize the viewport such that:
---    * The smallest dimension still corresponds to at least [-1, 1]
---    * The viewport is centered on (0, 0)
+--    * The smallest dimension still corresponds to at least [0, 1]
+--    * The viewport is centered on (0.5, 0.5)
 resizeViewport :: GLsizei -> GLsizei -> IO ()
 resizeViewport w h
-    | w > h     = viewport $= (Position ((w - h) `div` 2) 0, Size h h)
-    | otherwise = viewport $= (Position 0 ((h - w) `div` 2), Size w w)
+    | w > h     = viewport $= (Position (-h) (-h), Size (2*h) (2*h))
+    | otherwise = viewport $= (Position (-w) (-w), Size (2*w) (2*w))
