@@ -100,7 +100,7 @@ makeAnimation s = Animation s makeVelocity
 
 getInitialState :: Globals
 getInitialState = let
-    b = makeXYXYValid (-0.9) (-0.9) 0.9 0.9
+    b = makeXYXYValid 0.1 0.1 0.9 0.9
     anim = makeAnimation $ Colored blue b
     in Globals anim basicTiles True
 
@@ -112,11 +112,9 @@ coordsAt w _ dw dh i = let
 
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
-    f (x, y) = (x - 1, y - 1)
     b = makeXYWHValid (realToFrac x) (realToFrac y) 1 1
-    b' = scaleBox (1/8) (1/8) b
-    b'' = b' & bXY %~ f
-    in drawSprite $ Colored c b''
+    b' = scaleBox (1/16) (1/16) b
+    in drawSprite $ Colored c b'
 
 drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
@@ -162,7 +160,6 @@ mainLoop = makeShine >> loop
         in do
         texobj <- lift . loadTexture $ "shine2.png"
         _2 . gCharacter .= makeAnimation (Textured texobj b)
-    bg = Colored blue $ makeXYXYValid (-0.9) (-0.9) 0.9 0.9
     loop :: Loop Globals
     loop = do
         ticks <- lift getTicks
@@ -173,7 +170,6 @@ mainLoop = makeShine >> loop
         handleEvents eventHandler
         gravitate
         lift clearScreen
-        lift . drawSprite $ bg
         whether <- use $ _2 . gShowTiles
         tiles <- use $ _2 . gTiles
         if whether
