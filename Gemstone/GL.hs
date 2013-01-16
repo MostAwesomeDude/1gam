@@ -34,5 +34,5 @@ finishFrame = glSwapBuffers
 --    * The viewport is centered on (0.5, 0.5)
 resizeViewport :: GLsizei -> GLsizei -> IO ()
 resizeViewport w h
-    | w > h     = viewport $= (Position (-h) (-h), Size (2*h) (2*h))
-    | otherwise = viewport $= (Position (-w) (-w), Size (2*w) (2*w))
+    | w > h     = viewport $= (Position ((w-3*h) `div` 2) (-h), Size (2*h) (2*h))
+    | otherwise = viewport $= (Position (-w) ((h-3*w) `div` 2), Size (2*w) (2*w))
