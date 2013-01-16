@@ -38,7 +38,8 @@ makeLenses ''Animation
 
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
-                       , _gPaddle :: Animation GLfloat }
+                       , _gPlayer :: Animation GLfloat
+                       , _gCPU :: Animation GLfloat }
 
 makeLenses ''Globals
 
@@ -64,24 +65,25 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     setFontFaceSize font 1 72
-    return $ Globals font ball paddle
+    return $ Globals font ball player cpu
     where
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
-    paddle = animate . Colored black $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
+    player = animate . Colored black $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
+    cpu = animate . Colored black $ makeXYWHValid 0.90 (-0.1) 0.02 0.2
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_DOWN _ _) ->
-        gPaddle . aVelocity . vY .= -1
+        gPlayer . aVelocity . vY .= -1
     KeyDown (Keysym SDLK_UP _ _) ->
-        gPaddle . aVelocity . vY .= 1
+        gPlayer . aVelocity . vY .= 1
     KeyUp (Keysym SDLK_DOWN _ _) ->
-        gPaddle . aVelocity . vY .= 0
+        gPlayer . aVelocity . vY .= 0
     KeyUp (Keysym SDLK_UP _ _) ->
-        gPaddle . aVelocity . vY .= 0
+        gPlayer . aVelocity . vY .= 0
     _ -> lift . putStrLn $ show event
 
 write :: Font -> String -> RGB -> IO ()
@@ -105,7 +107,8 @@ mainLoop = loop
         lift clearScreen
         delta <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
         Animation ball _ <- _2 . gBall <%= move delta
-        Animation paddle _ <- _2 . gPaddle <%= move delta
+        Animation player _ <- _2 . gPlayer <%= move delta
+        Animation cpu _ <- _2 . gCPU <%= move delta
         zoom (_2 . gBall) $ do
             -- First, check for the top and bottom bounds of the arena.
             collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= (-1))
@@ -120,9 +123,9 @@ mainLoop = loop
             -- regardless of intersection depth; this is to prevent situations
             -- where the ball might get stuck inside the paddle, negating
             -- every frame but never breaking free.
-            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ paddle ^. sBox
+            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ player ^. sBox
             when paddled $ aVelocity . vX %= abs
-        lift . drawSprites $ [bg, ball, paddle]
+        lift . drawSprites $ [bg, ball, player, cpu]
         font <- use $ _2 . gFont
         lift $ write font "Derp" white
         lift finishFrame
