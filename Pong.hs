@@ -86,11 +86,14 @@ eventHandler event = case event of
         gPlayer . aVelocity . vY .= 0
     _ -> lift . putStrLn $ show event
 
-write :: Font -> String -> RGB -> IO ()
-write font text c = do
+-- | Write some text.
+write :: (Num c, MatrixComponent c) =>
+          Font -> String -> RGB -> c -> c -> c -> IO ()
+write font text c x y h = do
     color c
     preservingMatrix $ do
-        translate $ Vector3 0.1 0.1 (0 :: GLfloat)
+        scale h h 1
+        translate $ Vector3 x y 0
         renderFont font text All
 
 halfway :: Fractional a => (a, a) -> a
@@ -142,7 +145,7 @@ mainLoop = loop
             when paddled $ aVelocity . vX %= negate . abs
         lift . drawSprites $ [bg, ball, player, cpu]
         font <- use $ _2 . gFont
-        lift $ write font "Derp" white
+        lift $ write font "Derp" white 0 0 (0.2 :: GLfloat)
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
