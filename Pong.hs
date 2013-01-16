@@ -93,6 +93,9 @@ write font text c = do
         translate $ Vector3 (-0.1) (-0.1) (0 :: GLfloat)
         renderFont font text All
 
+halfway :: Fractional a => (a, a) -> a
+halfway (x, y) = (x + y) / 2
+
 mainLoop :: Loop Globals
 mainLoop = loop
     where
@@ -109,6 +112,16 @@ mainLoop = loop
         Animation ball _ <- _2 . gBall <%= move delta
         Animation player _ <- _2 . gPlayer <%= move delta
         Animation cpu _ <- _2 . gCPU <%= move delta
+        -- Move the CPU's paddle towards the ball.
+        first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
+        second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
+        third <- use $ _2 . gCPU . aSprite . sBox . remit box . bBot
+        fourth <- use $ _2 . gCPU . aSprite . sBox . remit box . bTop
+        let midpoint = halfway (first, second)
+            current = halfway (third, fourth)
+        _2 . gCPU . aVelocity . vY .= if midpoint <= current
+            then (-1)
+            else 1
         zoom (_2 . gBall) $ do
             -- First, check for the top and bottom bounds of the arena.
             collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= (-1))
@@ -125,6 +138,8 @@ mainLoop = loop
             -- every frame but never breaking free.
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ player ^. sBox
             when paddled $ aVelocity . vX %= abs
+            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
+            when paddled $ aVelocity . vX %= negate . abs
         lift . drawSprites $ [bg, ball, player, cpu]
         font <- use $ _2 . gFont
         lift $ write font "Derp" white
