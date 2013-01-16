@@ -70,8 +70,8 @@ makeGlobals = do
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
-    player = animate . Colored black $ makeXYWHValid (-0.92) (-0.1) 0.02 0.2
-    cpu = animate . Colored black $ makeXYWHValid 0.90 (-0.1) 0.02 0.2
+    player = animate . Colored black $ makeXYWHValid (0.08) 0.1 0.02 0.2
+    cpu = animate . Colored black $ makeXYWHValid 0.90 0.1 0.02 0.2
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
@@ -90,7 +90,7 @@ write :: Font -> String -> RGB -> IO ()
 write font text c = do
     color c
     preservingMatrix $ do
-        translate $ Vector3 (-0.1) (-0.1) (0 :: GLfloat)
+        translate $ Vector3 0.1 0.1 (0 :: GLfloat)
         renderFont font text All
 
 halfway :: Fractional a => (a, a) -> a
@@ -99,7 +99,7 @@ halfway (x, y) = (x + y) / 2
 mainLoop :: Loop Globals
 mainLoop = loop
     where
-    bg = Colored blue $ makeXYXYValid (-1) (-1) 1 1
+    bg = Colored blue $ makeXYXYValid 0 0 1 1
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
@@ -124,7 +124,7 @@ mainLoop = loop
             else 1
         zoom (_2 . gBall) $ do
             -- First, check for the top and bottom bounds of the arena.
-            collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= (-1))
+            collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= 0)
             when collidesBot $ aVelocity . vY %= abs
             collidesTop <- uses (aSprite . sBox . remit box . bTop) $ (>= 1)
             when collidesTop $ aVelocity . vY %= negate . abs
