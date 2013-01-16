@@ -12,6 +12,7 @@ import Data.Word
 
 import Codec.Image.STB
 import Data.Bitmap.OpenGL
+import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
@@ -35,7 +36,8 @@ data Animation v = Animation { _aSprite   :: Sprite v
 
 makeLenses ''Animation
 
-data Globals = Globals { _gBall :: Animation GLfloat
+data Globals = Globals { _gFont :: Font
+                       , _gBall :: Animation GLfloat
                        , _gPaddle :: Animation GLfloat }
 
 makeLenses ''Globals
@@ -58,8 +60,11 @@ move delta (Animation s v@(Velocity dx dy)) = Animation s' v
 animate :: Num a => Sprite a -> Animation a
 animate s = Animation s $ Velocity 0 0
 
-makeGlobals :: Globals
-makeGlobals = Globals ball paddle
+makeGlobals :: IO Globals
+makeGlobals = do
+    font <- createPolygonFont "Inconsolata.otf"
+    setFontFaceSize font 1 72
+    return $ Globals font ball paddle
     where
     ball = Animation s v
     v = Velocity 0.2 0.2
@@ -79,10 +84,17 @@ eventHandler event = case event of
         gPaddle . aVelocity . vY .= 0
     _ -> lift . putStrLn $ show event
 
+write :: Font -> String -> RGB -> IO ()
+write font text c = do
+    color c
+    preservingMatrix $ do
+        translate $ Vector3 (-0.1) (-0.1) (0 :: GLfloat)
+        renderFont font text All
+
 mainLoop :: Loop Globals
 mainLoop = loop
     where
-    bg = Colored white $ makeXYXYValid (-1) (-1) 1 1
+    bg = Colored blue $ makeXYXYValid (-1) (-1) 1 1
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
@@ -111,9 +123,13 @@ mainLoop = loop
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ paddle ^. sBox
             when paddled $ aVelocity . vX %= abs
         lift . drawSprites $ [bg, ball, paddle]
+        font <- use $ _2 . gFont
+        lift $ write font "Derp" white
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
 
 main :: IO ()
-main = gemstoneMain makeGlobals mainLoop
+main = do
+    globals <- makeGlobals
+    gemstoneMain globals mainLoop
