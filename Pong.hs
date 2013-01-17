@@ -39,7 +39,9 @@ makeLenses ''Animation
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
                        , _gPlayer :: Animation GLfloat
-                       , _gCPU :: Animation GLfloat }
+                       , _gCPU :: Animation GLfloat
+                       , _gPlayerScore :: Int
+                       , _gCPUScore :: Int }
 
 makeLenses ''Globals
 
@@ -68,7 +70,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     setFontFaceSize font 1 72
-    return $ Globals font ball player cpu
+    return $ Globals font ball player cpu 0 0
     where
     ball = Animation s v
     v = Velocity 0.2 0.2
@@ -153,8 +155,10 @@ mainLoop = loop
             when paddled $ aVelocity . vX %= negate . abs
         lift . drawSprites $ [bg, ball, player, cpu]
         font <- use $ _2 . gFont
-        lift $ write font (Text "0" white 0.2 0.7 (0.1 :: GLfloat))
-        lift $ write font (Text "0" white 0.7 0.7 (0.1 :: GLfloat))
+        pScore <- uses (_2 . gPlayerScore) show
+        cScore <- uses (_2 . gCPUScore) show
+        lift $ write font (Text pScore white 0.2 0.7 (0.1 :: GLfloat))
+        lift $ write font (Text cScore white 0.7 0.7 (0.1 :: GLfloat))
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
