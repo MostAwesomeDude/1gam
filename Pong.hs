@@ -73,8 +73,12 @@ makeGlobals = do
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
-    player = animate . Colored black $ makeXYWHValid (0.08) 0.1 0.02 0.2
-    cpu = animate . Colored black $ makeXYWHValid 0.90 0.1 0.02 0.2
+    player = animate . Colored black $ makeXYWHValid (0.08) 0.4 0.02 0.2
+    cpu = animate . Colored black $ makeXYWHValid 0.90 0.4 0.02 0.2
+
+resetBall :: Globals -> Globals
+resetBall globals =
+    globals & gBall . aSprite . sBox .~ makeXYWHValid 0.3 0.6 0.1 0.1
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
@@ -127,15 +131,17 @@ mainLoop = loop
         _2 . gCPU . aVelocity . vY .= if midpoint <= current
             then (-1)
             else 1
+        zoom _2 $ do
+            pScored <- uses (gBall . aSprite . sBox . remit box . bRight) $ (>= 1)
+            when pScored $ modify resetBall
+            cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) $ (<= 0)
+            when cScored $ modify resetBall
         zoom (_2 . gBall) $ do
             -- First, check for the top and bottom bounds of the arena.
             collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= 0)
             when collidesBot $ aVelocity . vY %= abs
             collidesTop <- uses (aSprite . sBox . remit box . bTop) $ (>= 1)
             when collidesTop $ aVelocity . vY %= negate . abs
-            -- And the right-hand side, for now.
-            x <- uses (aSprite . sBox . remit box . bRight) $ (>= 1)
-            when x $ aVelocity . vX %= negate . abs
             -- Then check for collisions with the paddle. Any paddle collision
             -- should successfully get the ball heading the other direction,
             -- regardless of intersection depth; this is to prevent situations
