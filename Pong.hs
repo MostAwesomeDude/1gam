@@ -135,9 +135,9 @@ mainLoop = loop
             else 1
         zoom _2 $ do
             pScored <- uses (gBall . aSprite . sBox . remit box . bRight) $ (>= 1)
-            when pScored $ modify resetBall
+            when pScored $ modify resetBall >> gPlayerScore += 1
             cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) $ (<= 0)
-            when cScored $ modify resetBall
+            when cScored $ modify resetBall >> gCPUScore += 1
         zoom (_2 . gBall) $ do
             -- First, check for the top and bottom bounds of the arena.
             collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= 0)
