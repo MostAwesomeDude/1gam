@@ -43,6 +43,9 @@ data Globals = Globals { _gFont :: Font
 
 makeLenses ''Globals
 
+data Text a = Text String RGB a a a
+    deriving (Show)
+
 makeVelocity :: Num v => Velocity v
 makeVelocity = Velocity 0 0
 
@@ -87,13 +90,12 @@ eventHandler event = case event of
     _ -> lift . putStrLn $ show event
 
 -- | Write some text.
-write :: (Num c, MatrixComponent c) =>
-          Font -> String -> RGB -> c -> c -> c -> IO ()
-write font text c x y h = do
+write :: (Num c, MatrixComponent c) => Font -> Text c -> IO ()
+write font (Text text c x y h) = do
     color c
     preservingMatrix $ do
-        scale h h 1
         translate $ Vector3 x y 0
+        scale h h 1
         renderFont font text All
 
 halfway :: Fractional a => (a, a) -> a
@@ -145,7 +147,8 @@ mainLoop = loop
             when paddled $ aVelocity . vX %= negate . abs
         lift . drawSprites $ [bg, ball, player, cpu]
         font <- use $ _2 . gFont
-        lift $ write font "Derp" white 0 0 (0.2 :: GLfloat)
+        lift $ write font (Text "0" white 0.2 0.7 (0.1 :: GLfloat))
+        lift $ write font (Text "0" white 0.7 0.7 (0.1 :: GLfloat))
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
