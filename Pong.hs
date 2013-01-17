@@ -107,10 +107,18 @@ write font (Text text c x y h) = do
 halfway :: Fractional a => (a, a) -> a
 halfway (x, y) = (x + y) / 2
 
+showScores :: StateT Globals IO ()
+showScores = do
+    font <- use gFont
+    pScore <- uses gPlayerScore show
+    cScore <- uses gCPUScore show
+    lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
+    lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
+
 mainLoop :: Loop Globals
 mainLoop = loop
     where
-    bg = Colored blue $ makeXYXYValid 0 0 1 1
+    bg = Colored white $ makeXYXYValid 0 0 1 1
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
@@ -153,12 +161,11 @@ mainLoop = loop
             when paddled $ aVelocity . vX %= abs
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
             when paddled $ aVelocity . vX %= negate . abs
-        lift . drawSprites $ [bg, ball, player, cpu]
-        font <- use $ _2 . gFont
-        pScore <- uses (_2 . gPlayerScore) show
-        cScore <- uses (_2 . gCPUScore) show
-        lift $ write font (Text pScore white 0.2 0.7 (0.1 :: GLfloat))
-        lift $ write font (Text cScore white 0.7 0.7 (0.1 :: GLfloat))
+        -- Draw the background, then the scores, and then the ball and
+        -- players.
+        lift . drawSprite $ bg
+        zoom _2 showScores
+        lift . drawSprites $ [ball, player, cpu]
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
