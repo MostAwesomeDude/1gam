@@ -88,9 +88,9 @@ eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_DOWN _ _) ->
-        gPlayer . aVelocity . vY .= -1
+        gPlayer . aVelocity . vY .= -0.3
     KeyDown (Keysym SDLK_UP _ _) ->
-        gPlayer . aVelocity . vY .= 1
+        gPlayer . aVelocity . vY .= 0.3
     KeyUp (Keysym SDLK_DOWN _ _) ->
         gPlayer . aVelocity . vY .= 0
     KeyUp (Keysym SDLK_UP _ _) ->
@@ -121,7 +121,7 @@ aimBall :: (Fractional a, Num a, RealFloat a) => Box a -> Box a -> Velocity a
 aimBall paddle ball = let
     (px, py) = center paddle
     (bx, by) = center ball
-    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ 0.15
+    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ 0.3
     in Velocity vx vy
 
 mainLoop :: Loop Globals
@@ -148,8 +148,8 @@ mainLoop = loop
         let midpoint = halfway (first, second)
             current = halfway (third, fourth)
         _2 . gCPU . aVelocity . vY .= if midpoint <= current
-            then (-1)
-            else 1
+            then (-0.3)
+            else 0.3
         zoom _2 $ do
             pScored <- uses (gBall . aSprite . sBox . remit box . bRight) $ (>= 1)
             when pScored $ modify resetBall >> gPlayerScore += 1
