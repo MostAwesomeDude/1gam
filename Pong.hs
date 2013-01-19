@@ -6,6 +6,8 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Array
+import Data.Complex
+import Data.Complex.Lens
 import qualified Data.Map as M
 import Data.Maybe
 import Data.Word
@@ -115,6 +117,13 @@ showScores = do
     lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
     lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
 
+aimBall :: (Fractional a, Num a, RealFloat a) => Box a -> Box a -> Velocity a
+aimBall paddle ball = let
+    (px, py) = center paddle
+    (bx, by) = center ball
+    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ 0.15
+    in Velocity vx vy
+
 mainLoop :: Loop Globals
 mainLoop = loop
     where
@@ -158,9 +167,9 @@ mainLoop = loop
             -- where the ball might get stuck inside the paddle, negating
             -- every frame but never breaking free.
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ player ^. sBox
-            when paddled $ aVelocity . vX %= abs
+            when paddled $ aVelocity .= aimBall (player ^. sBox) (ball ^. sBox)
             paddled <- uses (aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
-            when paddled $ aVelocity . vX %= negate . abs
+            when paddled $ aVelocity .= aimBall (cpu ^. sBox) (ball ^. sBox)
         -- Draw the background, then the scores, and then the ball and
         -- players.
         lift . drawSprite $ bg
