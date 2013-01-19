@@ -43,7 +43,8 @@ data Globals = Globals { _gFont :: Font
                        , _gPlayer :: Animation GLfloat
                        , _gCPU :: Animation GLfloat
                        , _gPlayerScore :: Int
-                       , _gCPUScore :: Int }
+                       , _gCPUScore :: Int
+                       , _gBounces :: Int }
 
 makeLenses ''Globals
 
@@ -72,13 +73,13 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0
+    return $ Globals font ball player cpu 0 0 0
     where
     ball = Animation s v
     v = Velocity 0.2 0.2
     s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
-    player = animate . Colored black $ makeXYWHValid (0.08) 0.4 0.02 0.2
-    cpu = animate . Colored black $ makeXYWHValid 0.90 0.4 0.02 0.2
+    player = animate . Colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
+    cpu = animate . Colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
 
 resetBall :: Globals -> Globals
 resetBall globals =
@@ -117,11 +118,13 @@ showScores = do
     lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
     lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
 
-aimBall :: (Fractional a, Num a, RealFloat a) => Box a -> Box a -> Velocity a
-aimBall paddle ball = let
+aimBall :: (Fractional a, Num a, RealFloat a) =>
+            Int -> Box a -> Box a -> Velocity a
+aimBall count paddle ball = let
     (px, py) = center paddle
     (bx, by) = center ball
-    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ 0.3
+    mag = 0.3 + (0.01 * fromIntegral count)
+    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ mag
     in Velocity vx vy
 
 mainLoop :: Loop Globals
@@ -151,25 +154,28 @@ mainLoop = loop
             then (-0.3)
             else 0.3
         zoom _2 $ do
-            pScored <- uses (gBall . aSprite . sBox . remit box . bRight) $ (>= 1)
+            pScored <- uses (gBall . aSprite . sBox . remit box . bRight) (>= 1)
             when pScored $ modify resetBall >> gPlayerScore += 1
-            cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) $ (<= 0)
+            cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) (<= 0)
             when cScored $ modify resetBall >> gCPUScore += 1
-        zoom (_2 . gBall) $ do
-            -- First, check for the top and bottom bounds of the arena.
-            collidesBot <- uses (aSprite . sBox . remit box . bBot) $ (<= 0)
-            when collidesBot $ aVelocity . vY %= abs
-            collidesTop <- uses (aSprite . sBox . remit box . bTop) $ (>= 1)
-            when collidesTop $ aVelocity . vY %= negate . abs
+            -- Now, check for the top and bottom bounds of the arena.
+            collidesBot <- uses (gBall . aSprite . sBox . remit box . bBot) (<= 0)
+            when collidesBot $ gBall . aVelocity . vY %= abs
+            collidesTop <- uses (gBall . aSprite . sBox . remit box . bTop) (>= 1)
+            when collidesTop $ gBall . aVelocity . vY %= negate . abs
             -- Then check for collisions with the paddle. Any paddle collision
             -- should successfully get the ball heading the other direction,
             -- regardless of intersection depth; this is to prevent situations
             -- where the ball might get stuck inside the paddle, negating
             -- every frame but never breaking free.
-            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ player ^. sBox
-            when paddled $ aVelocity .= aimBall (player ^. sBox) (ball ^. sBox)
-            paddled <- uses (aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
-            when paddled $ aVelocity .= aimBall (cpu ^. sBox) (ball ^. sBox)
+            paddled <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ player ^. sBox
+            when paddled $ do
+                count <- gBounces <+= 1
+                gBall . aVelocity .= aimBall count (player ^. sBox) (ball ^. sBox)
+            paddled <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
+            when paddled $ do
+                count <- gBounces <+= 1
+                gBall . aVelocity .= aimBall count (cpu ^. sBox) (ball ^. sBox)
         -- Draw the background, then the scores, and then the ball and
         -- players.
         lift . drawSprite $ bg
