@@ -6,6 +6,7 @@ module Gemstone.Box (
     bLeft, bBot, bRight, bTop,
     bW, bH, bW', bH',
     bX, bY, bXY,
+    center,
     scaleBox,
 ) where
 
@@ -99,6 +100,10 @@ bXY :: Num a => Simple Lens (Box a) (a, a)
 bXY f (Box (BoxLike x1 y1 x2 y2)) = let
     f' (w, h) = Box $ BoxLike w h (w + x2 - x1) (h + y2 - y1)
     in fmap f' $ f (x1, y1)
+
+-- The center of a box. Read-only.
+center :: Fractional a => Box a -> (a, a)
+center (Box (BoxLike x1 y1 x2 y2)) = ((x1 + x2) / 2, (y1 + y2) / 2)
 
 -- Scale a box.
 scaleBox :: (Eq v, Num v) => v -> v -> Box v -> Box v
