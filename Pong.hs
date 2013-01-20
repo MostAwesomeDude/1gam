@@ -174,6 +174,9 @@ mainLoop = loop
         forM_ [gBall, gPlayer, gCPU] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
+        when paused $ do
+            font <- use $ _2 . gFont
+            lift $ write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
