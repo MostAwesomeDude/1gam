@@ -67,6 +67,7 @@ Library
                    , bitmap-opengl
                    , containers
                    , lens
+                   , linear
                    , stb-image
                    , transformers
 

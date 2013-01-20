@@ -17,6 +17,7 @@ import Data.Bitmap.OpenGL
 import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
+import Linear as L
 
 import Gemstone.Box
 import Gemstone.Color
@@ -118,13 +119,14 @@ showScores = do
     lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
     lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
 
-aimBall :: (Fractional a, Num a, RealFloat a) =>
+aimBall :: (Epsilon a, Fractional a, Num a, RealFloat a) =>
             Int -> Box a -> Box a -> Velocity a
 aimBall count paddle ball = let
     (px, py) = center paddle
     (bx, by) = center ball
     mag = 0.3 + (0.01 * fromIntegral count)
-    vx :+ vy = (bx - px) :+ (by - py) & _magnitude .~ mag
+    scaled = L.normalize $ V2 bx by - V2 px py
+    V2 vx vy = scaled * mag
     in Velocity vx vy
 
 mainLoop :: Loop Globals
