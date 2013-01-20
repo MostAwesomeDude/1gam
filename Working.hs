@@ -8,7 +8,6 @@ import Control.Monad.Trans.State
 import Data.Array
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Word
 
 import Codec.Image.STB
 import Data.Bitmap.OpenGL
@@ -19,7 +18,6 @@ import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Loop
-import Gemstone.Maths
 import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
@@ -166,7 +164,7 @@ mainLoop = makeShine >> loop
         gems . gTimers %= updateTimestamp ticks
         fps <- use $ gems . gTimers . tFps
         delta <- use $ gems . gTimers . tDelta
-        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
+        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
         gravitate
         lift clearScreen
