@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
+import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -19,13 +20,8 @@ import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
 
-data Velocity v = Velocity { _vX, _vY :: v }
-    deriving (Show)
-
-makeLenses ''Velocity
-
 data Animation v = Animation { _aSprite   :: Sprite v
-                             , _aVelocity :: Velocity v }
+                             , _aVelocity :: V2 v }
     deriving (Show)
 
 makeLenses ''Animation
@@ -43,11 +39,8 @@ makeLenses ''Globals
 data Text a = Text String RGB a a a
     deriving (Show)
 
-makeVelocity :: Num v => Velocity v
-makeVelocity = Velocity 0 0
-
 makeAnimation :: Num v => Sprite v -> Animation v
-makeAnimation s = Animation s makeVelocity
+makeAnimation s = Animation s 0
 
 -- | Chop up a duration according to the delta of a timer.
 dt :: Fractional a => Timers -> a -> a
@@ -55,11 +48,13 @@ dt timers x = delta * x / 1000
     where delta = fromIntegral $ timers ^. tDelta
 
 move :: (Num v, Ord v, Show v) => v -> Animation v -> Animation v
-move delta (Animation s v@(Velocity dx dy)) = Animation s' v
-    where s' = s & sBox . bXY %~ (\(x, y) -> (x + delta * dx, y + delta * dy))
+move delta animation = animation & aSprite . sBox . bXY %~ f
+    where
+    v' = animation ^. aVelocity * pure delta
+    f (x, y) = case V2 x y + v' of V2 x' y' -> (x', y')
 
 animate :: Num a => Sprite a -> Animation a
-animate s = Animation s $ Velocity 0 0
+animate s = Animation s 0
 
 makeGlobals :: IO Globals
 makeGlobals = do
@@ -68,7 +63,7 @@ makeGlobals = do
     return $ Globals font ball player cpu 0 0 0
     where
     ball = Animation s v
-    v = Velocity 0.2 0.2
+    v = 0.2
     s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
     player = animate . Colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
     cpu = animate . Colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
@@ -81,13 +76,13 @@ eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_DOWN _ _) ->
-        gPlayer . aVelocity . vY .= -0.3
+        gPlayer . aVelocity . _y .= -0.3
     KeyDown (Keysym SDLK_UP _ _) ->
-        gPlayer . aVelocity . vY .= 0.3
+        gPlayer . aVelocity . _y .= 0.3
     KeyUp (Keysym SDLK_DOWN _ _) ->
-        gPlayer . aVelocity . vY .= 0
+        gPlayer . aVelocity . _y .= 0
     KeyUp (Keysym SDLK_UP _ _) ->
-        gPlayer . aVelocity . vY .= 0
+        gPlayer . aVelocity . _y .= 0
     _ -> lift . putStrLn $ show event
 
 -- | Write some text.
@@ -111,14 +106,13 @@ showScores = do
     lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
 
 aimBall :: (Epsilon a, Fractional a, Num a, RealFloat a) =>
-            Int -> Box a -> Box a -> Velocity a
+            Int -> Box a -> Box a -> V2 a
 aimBall count paddle ball = let
     (px, py) = center paddle
     (bx, by) = center ball
     mag = 0.3 + (0.01 * fromIntegral count)
     scaled = L.normalize $ V2 bx by - V2 px py
-    V2 vx vy = scaled * mag
-    in Velocity vx vy
+    in scaled * mag
 
 mainLoop :: Loop Globals
 mainLoop = loop
@@ -143,7 +137,7 @@ mainLoop = loop
         fourth <- use $ _2 . gCPU . aSprite . sBox . remit box . bTop
         let midpoint = halfway (first, second)
             current = halfway (third, fourth)
-        _2 . gCPU . aVelocity . vY .= if midpoint <= current
+        _2 . gCPU . aVelocity . _y .= if midpoint <= current
             then (-0.3)
             else 0.3
         zoom _2 $ do
@@ -153,9 +147,9 @@ mainLoop = loop
             when cScored $ modify resetBall >> gCPUScore += 1
             -- Now, check for the top and bottom bounds of the arena.
             collidesBot <- uses (gBall . aSprite . sBox . remit box . bBot) (<= 0)
-            when collidesBot $ gBall . aVelocity . vY %= abs
+            when collidesBot $ gBall . aVelocity . _y %= abs
             collidesTop <- uses (gBall . aSprite . sBox . remit box . bTop) (>= 1)
-            when collidesTop $ gBall . aVelocity . vY %= negate . abs
+            when collidesTop $ gBall . aVelocity . _y %= negate . abs
             -- Then check for collisions with the paddle. Any paddle collision
             -- should successfully get the ball heading the other direction,
             -- regardless of intersection depth; this is to prevent situations
