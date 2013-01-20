@@ -32,7 +32,8 @@ data Globals = Globals { _gFont :: Font
                        , _gCPU :: Animation GLfloat
                        , _gPlayerScore :: Int
                        , _gCPUScore :: Int
-                       , _gBounces :: Int }
+                       , _gBounces :: Int
+                       , _gPaused :: Bool }
 
 makeLenses ''Globals
 
@@ -60,7 +61,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0 0
+    return $ Globals font ball player cpu 0 0 0 False
     where
     ball = Animation s v
     v = 0.2
@@ -114,6 +115,18 @@ aimBall count paddle ball = let
     scaled = L.normalize $ V2 bx by - V2 px py
     in scaled * mag
 
+-- Any paddle collision should successfully get the ball heading the other
+-- direction, regardless of intersection depth; this is to prevent situations
+-- where the ball might get stuck inside the paddle, negating every frame but
+-- never breaking free.
+paddleBall :: Box GLfloat -> StateT Globals IO ()
+paddleBall b = do
+    paddled <- uses (gBall . aSprite . sBox) $ bInter b
+    when paddled $ do
+        count <- gBounces <+= 1
+        ballBox <- use $ gBall . aSprite . sBox
+        gBall . aVelocity .= aimBall count b ballBox
+
 mainLoop :: Loop Globals
 mainLoop = loop
     where
@@ -126,10 +139,12 @@ mainLoop = loop
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
         lift clearScreen
-        delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
-        Animation ball _ <- _2 . gBall <%= move delta'
-        Animation player _ <- _2 . gPlayer <%= move delta'
-        Animation cpu _ <- _2 . gCPU <%= move delta'
+        paused <- use $ _2 . gPaused
+        unless paused $ do
+            delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
+            _2 . gBall %= move delta'
+            _2 . gPlayer %= move delta'
+            _2 . gCPU %= move delta'
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
@@ -140,7 +155,7 @@ mainLoop = loop
         _2 . gCPU . aVelocity . _y .= if midpoint <= current
             then (-0.3)
             else 0.3
-        zoom _2 $ do
+        unless paused $ zoom _2 $ do
             pScored <- uses (gBall . aSprite . sBox . remit box . bRight) (>= 1)
             when pScored $ modify resetBall >> gPlayerScore += 1
             cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) (<= 0)
@@ -150,24 +165,18 @@ mainLoop = loop
             when collidesBot $ gBall . aVelocity . _y %= abs
             collidesTop <- uses (gBall . aSprite . sBox . remit box . bTop) (>= 1)
             when collidesTop $ gBall . aVelocity . _y %= negate . abs
-            -- Then check for collisions with the paddle. Any paddle collision
-            -- should successfully get the ball heading the other direction,
-            -- regardless of intersection depth; this is to prevent situations
-            -- where the ball might get stuck inside the paddle, negating
-            -- every frame but never breaking free.
-            paddled <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ player ^. sBox
-            when paddled $ do
-                count <- gBounces <+= 1
-                gBall . aVelocity .= aimBall count (player ^. sBox) (ball ^. sBox)
-            paddled' <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
-            when paddled' $ do
-                count <- gBounces <+= 1
-                gBall . aVelocity .= aimBall count (cpu ^. sBox) (ball ^. sBox)
+            -- Then check for collisions with the paddle.
+            paddleBox <- use $ gPlayer . aSprite . sBox
+            paddleBall paddleBox
+            cpuBox <- use $ gCPU . aSprite . sBox
+            paddleBall cpuBox
         -- Draw the background, then the scores, and then the ball and
         -- players.
-        lift . drawSprite $ bg
+        lift $ drawSprite bg
         zoom _2 showScores
-        lift . drawSprites $ [ball, player, cpu]
+        forM_ [gBall, gPlayer, gCPU] $ \l -> do
+            sprite <- use $ _2 . l . aSprite
+            lift $ drawSprite sprite
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
