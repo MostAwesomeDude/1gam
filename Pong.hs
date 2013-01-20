@@ -5,15 +5,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
-import Data.Array
-import Data.Complex
-import Data.Complex.Lens
-import qualified Data.Map as M
-import Data.Maybe
-import Data.Word
 
-import Codec.Image.STB
-import Data.Bitmap.OpenGL
 import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
@@ -23,7 +15,6 @@ import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Loop
-import Gemstone.Maths
 import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
@@ -73,7 +64,7 @@ animate s = Animation s $ Velocity 0 0
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
-    setFontFaceSize font 1 72
+    void $ setFontFaceSize font 1 72
     return $ Globals font ball player cpu 0 0 0
     where
     ball = Animation s v
@@ -138,13 +129,13 @@ mainLoop = loop
         gems . gTimers %= updateTimestamp ticks
         fps <- use $ gems . gTimers . tFps
         delta <- use $ gems . gTimers . tDelta
-        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps) ++ ")"
+        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
         lift clearScreen
-        delta <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
-        Animation ball _ <- _2 . gBall <%= move delta
-        Animation player _ <- _2 . gPlayer <%= move delta
-        Animation cpu _ <- _2 . gCPU <%= move delta
+        delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
+        Animation ball _ <- _2 . gBall <%= move delta'
+        Animation player _ <- _2 . gPlayer <%= move delta'
+        Animation cpu _ <- _2 . gCPU <%= move delta'
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
@@ -174,8 +165,8 @@ mainLoop = loop
             when paddled $ do
                 count <- gBounces <+= 1
                 gBall . aVelocity .= aimBall count (player ^. sBox) (ball ^. sBox)
-            paddled <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
-            when paddled $ do
+            paddled' <- uses (gBall . aSprite . sBox) $ \b -> bInter b $ cpu ^. sBox
+            when paddled' $ do
                 count <- gBounces <+= 1
                 gBall . aVelocity .= aimBall count (cpu ^. sBox) (ball ^. sBox)
         -- Draw the background, then the scores, and then the ball and
