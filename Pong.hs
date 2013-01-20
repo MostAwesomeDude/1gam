@@ -76,14 +76,11 @@ resetBall globals =
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
-    KeyDown (Keysym SDLK_DOWN _ _) ->
-        gPlayer . aVelocity . _y .= -0.3
-    KeyDown (Keysym SDLK_UP _ _) ->
-        gPlayer . aVelocity . _y .= 0.3
-    KeyUp (Keysym SDLK_DOWN _ _) ->
-        gPlayer . aVelocity . _y .= 0
-    KeyUp (Keysym SDLK_UP _ _) ->
-        gPlayer . aVelocity . _y .= 0
+    KeyDown (Keysym SDLK_SPACE _ _) -> gPaused %= not
+    KeyDown (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= -0.3
+    KeyDown (Keysym SDLK_UP _ _) -> gPlayer . aVelocity . _y .= 0.3
+    KeyUp (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= 0
+    KeyUp (Keysym SDLK_UP _ _) -> gPlayer . aVelocity . _y .= 0
     _ -> lift . putStrLn $ show event
 
 -- | Write some text.
