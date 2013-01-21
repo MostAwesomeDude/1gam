@@ -179,8 +179,6 @@ mainLoop = loop
             lift $ drawSprite sprite
         when paused $ do
             font <- use $ _2 . gFont
-            lift $ blend $= Enabled
-            lift $ blendFunc $= (GL.SrcAlpha, OneMinusSrcAlpha)
             lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
             lift $ write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
         lift finishFrame
