@@ -96,10 +96,13 @@ makeVelocity = Velocity 0 0
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s makeVelocity
 
+colored :: RGB -> Box v -> Sprite v
+colored c b = Sprite (Colored c Nothing) b
+
 getInitialState :: Globals
 getInitialState = let
     b = makeXYXYValid 0.1 0.1 0.9 0.9
-    anim = makeAnimation $ Colored blue b
+    anim = makeAnimation $ colored blue b
     in Globals anim basicTiles True
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -110,9 +113,9 @@ coordsAt w _ dw dh i = let
 
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
-    b = makeXYWHValid (realToFrac x) (realToFrac y) 1 1
+    b = makeXYWHValid (realToFrac x) (realToFrac y) 1 (1 :: GLfloat)
     b' = scaleBox (1/16) (1/16) b
-    in drawSprite $ Colored c b'
+    in drawSprite $ colored c b'
 
 drawRawTiles :: RawTiles -> IO ()
 drawRawTiles t = forM_ (assocs t) $ \((x, y), tile) -> let
@@ -157,7 +160,7 @@ mainLoop = makeShine >> loop
         b = makeXYXYValid 0.7 0.7 0.8 0.8
         in do
         texobj <- lift . loadTexture $ "shine2.png"
-        _2 . gCharacter .= makeAnimation (Textured texobj b)
+        _2 . gCharacter .= makeAnimation (Sprite (Textured texobj) b)
     loop :: Loop Globals
     loop = do
         ticks <- lift getTicks
