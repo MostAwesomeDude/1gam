@@ -57,6 +57,9 @@ move delta animation = animation & aSprite . sBox . bXY %~ f
 animate :: Num a => Sprite a -> Animation a
 animate s = Animation s 0
 
+colored :: RGB -> Box v -> Sprite v
+colored c b = Sprite (Colored c Nothing) b
+
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
@@ -65,9 +68,9 @@ makeGlobals = do
     where
     ball = Animation s v
     v = 0.2
-    s = Colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
-    player = animate . Colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
-    cpu = animate . Colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
+    s = colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
+    player = animate . colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
+    cpu = animate . colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
 
 resetBall :: Globals -> Globals
 resetBall globals =
@@ -127,7 +130,7 @@ paddleBall b = do
 mainLoop :: Loop Globals
 mainLoop = loop
     where
-    bg = Colored white $ makeXYXYValid 0 0 1 1
+    bg = colored white $ makeXYXYValid 0 0 1 (1 :: GLfloat)
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
