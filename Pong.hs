@@ -106,6 +106,9 @@ showScores = do
     lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
     lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
 
+clampPaddle :: (Ord a, Num a) => Sprite a -> Sprite a
+clampPaddle s = s & sBox . bY %~ max 0 & sBox . bY' %~ min 1
+
 aimBall :: (Epsilon a, Fractional a, Num a, RealFloat a) =>
             Int -> Box a -> Box a -> V2 a
 aimBall count paddle ball = let
@@ -143,6 +146,8 @@ mainLoop = loop
         unless paused $ do
             delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
             zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move delta'
+            _2 . gPlayer . aSprite %= clampPaddle
+            _2 . gCPU . aSprite %= clampPaddle
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
