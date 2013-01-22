@@ -142,9 +142,7 @@ mainLoop = loop
         paused <- use $ _2 . gPaused
         unless paused $ do
             delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
-            _2 . gBall %= move delta'
-            _2 . gPlayer %= move delta'
-            _2 . gCPU %= move delta'
+            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move delta'
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
