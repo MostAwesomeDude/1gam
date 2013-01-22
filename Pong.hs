@@ -6,6 +6,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
+import System.Random
 
 import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL as GL
@@ -32,6 +33,12 @@ data Particle v = Particle { _pAnimation :: Animation v
 
 makeLenses ''Particle
 
+data Particles v = Particles { _pGen :: StdGen
+                             , _pCenter :: (v, v)
+                             , _pParticles :: [Particle v] }
+
+makeLenses ''Particles
+
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
                        , _gPlayer :: Animation GLfloat
@@ -40,7 +47,7 @@ data Globals = Globals { _gFont :: Font
                        , _gCPUScore :: Int
                        , _gBounces :: Int
                        , _gPaused :: Bool
-                       , _gParticles :: [Particle GLfloat] }
+                       , _gParticles :: Particles GLfloat }
 
 makeLenses ''Globals
 
@@ -60,6 +67,17 @@ updateParticles ticks =
 
 addParticle :: (Floating v, Ord v) => (v, v) -> [Particle v] -> [Particle v]
 addParticle coords = (makeParticle coords :)
+
+tickParticles :: (Floating v, Ord v) => Int -> Particles v -> Particles v
+tickParticles ticks p = p & update & extend
+    where
+    update = pParticles %~ updateParticles ticks
+    extend = pParticles %~ extender
+    extender ps = if length ps < 10 then addParticle coords ps else ps
+    coords = p ^. pCenter
+
+makeParticles :: Num v => Particles v
+makeParticles = Particles (mkStdGen 0) (0, 0) []
 
 -- | Chop up a duration according to the delta of a timer.
 dt :: Fractional a => Timers -> a -> a
@@ -82,7 +100,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0 0 False []
+    return $ Globals font ball player cpu 0 0 0 False makeParticles
     where
     ball = Animation s v
     v = 0.2
@@ -168,9 +186,8 @@ mainLoop = loop
             _2 . gCPU . aSprite %= clampPaddle
             coords <- use $ _2 . gBall . aSprite . sBox . to center
             zoom (_2 . gParticles) $ do
-                id %= updateParticles (fromIntegral delta)
-                len <- uses id length
-                when (len < 10) $ id %= addParticle coords
+                pCenter .= coords
+                id %= tickParticles (fromIntegral delta)
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
@@ -203,7 +220,7 @@ mainLoop = loop
         forM_ [gBall, gPlayer, gCPU] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
-        particles <- use $ _2 . gParticles
+        particles <- use $ _2 . gParticles . pParticles
         forM_ particles $ \p -> lift $ drawSprite (p ^. pAnimation . aSprite)
         when paused $ do
             font <- use $ _2 . gFont
