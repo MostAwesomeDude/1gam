@@ -52,7 +52,7 @@ makeAnimation s = Animation s 0
 
 makeParticle :: (Floating v, Ord v) => (v, v) -> Particle v
 makeParticle (x, y) = Particle (makeAnimation s) 1000
-    where s = colored green $ makeXYXYValid (x - 0.05) (y - 0.05) (x + 0.05) (y + 0.05)
+    where s = colored green $ makeXYXYValid (x - 0.005) (y - 0.005) (x + 0.005) (y + 0.005)
 
 updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
 updateParticles ticks =
