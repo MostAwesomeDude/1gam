@@ -26,6 +26,12 @@ data Animation v = Animation { _aSprite   :: Sprite v
 
 makeLenses ''Animation
 
+data Particle v = Particle { _pAnimation :: Animation v
+                           , _pTicks :: Int }
+    deriving (Show)
+
+makeLenses ''Particle
+
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
                        , _gPlayer :: Animation GLfloat
@@ -33,7 +39,8 @@ data Globals = Globals { _gFont :: Font
                        , _gPlayerScore :: Int
                        , _gCPUScore :: Int
                        , _gBounces :: Int
-                       , _gPaused :: Bool }
+                       , _gPaused :: Bool
+                       , _gParticles :: [Particle GLfloat] }
 
 makeLenses ''Globals
 
@@ -42,6 +49,17 @@ data Text a = Text String RGB a a a
 
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s 0
+
+makeParticle :: (Floating v, Ord v) => (v, v) -> Particle v
+makeParticle (x, y) = Particle (makeAnimation s) 1000
+    where s = colored green $ makeXYXYValid (x - 0.05) (y - 0.05) (x + 0.05) (y + 0.05)
+
+updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
+updateParticles ticks =
+    filter (^. pTicks . to (> 0)) . over (traverse . pTicks) (\x -> x - ticks)
+
+addParticle :: (Floating v, Ord v) => (v, v) -> [Particle v] -> [Particle v]
+addParticle coords = (makeParticle coords :)
 
 -- | Chop up a duration according to the delta of a timer.
 dt :: Fractional a => Timers -> a -> a
@@ -64,7 +82,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0 0 False
+    return $ Globals font ball player cpu 0 0 0 False []
     where
     ball = Animation s v
     v = 0.2
@@ -148,6 +166,11 @@ mainLoop = loop
             zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move delta'
             _2 . gPlayer . aSprite %= clampPaddle
             _2 . gCPU . aSprite %= clampPaddle
+            coords <- use $ _2 . gBall . aSprite . sBox . to center
+            zoom (_2 . gParticles) $ do
+                id %= updateParticles (fromIntegral delta)
+                len <- uses id length
+                when (len < 10) $ id %= addParticle coords
         -- Move the CPU's paddle towards the ball.
         first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
         second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
@@ -180,6 +203,8 @@ mainLoop = loop
         forM_ [gBall, gPlayer, gCPU] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
+        particles <- use $ _2 . gParticles
+        forM_ particles $ \p -> lift $ drawSprite (p ^. pAnimation . aSprite)
         when paused $ do
             font <- use $ _2 . gFont
             lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
