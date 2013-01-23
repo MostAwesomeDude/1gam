@@ -66,13 +66,17 @@ updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
 updateParticles ticks =
     filter (^. pTicks . to (> 0)) . over (traverse . pTicks) (\x -> x - ticks)
 
-tickParticles :: (Floating v, Ord v) => Int -> Particles v -> Particles v
-tickParticles ticks (Particles g center ps) = Particles g' center ps''
+tickParticles :: (Floating v, Ord v, Random v)
+               => Int -> Particles v -> Particles v
+tickParticles ticks (Particles g center@(cx, cy) ps) =
+    Particles g''' center ps''
     where
     ps' = updateParticles ticks ps
     ps'' = if length ps < 50 then newParticle : ps' else ps'
     (life, g') = randomR (0, 750) g
-    newParticle = makeParticle center life
+    (jitterx, g'') = randomR (-0.005, 0.005) g'
+    (jittery, g''') = randomR (-0.005, 0.005) g''
+    newParticle = makeParticle (cx + jitterx, cy + jittery) life
 
 makeParticles :: Num v => Particles v
 makeParticles = Particles (mkStdGen 0) (0, 0) []
