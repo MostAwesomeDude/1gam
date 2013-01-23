@@ -69,8 +69,8 @@ tickParticles :: (Floating v, Ord v) => Int -> Particles v -> Particles v
 tickParticles ticks (Particles g center ps) = Particles g' center ps''
     where
     ps' = updateParticles ticks ps
-    ps'' = if length ps < 10 then newParticle : ps' else ps'
-    (life, g') = randomR (0, 1000) g
+    ps'' = if length ps < 50 then newParticle : ps' else ps'
+    (life, g') = randomR (0, 750) g
     newParticle = makeParticle center life
 
 makeParticles :: Num v => Particles v
@@ -214,11 +214,12 @@ mainLoop = loop
         -- players.
         lift $ drawSprite bg
         zoom _2 showScores
+        -- Particles are behind the ball and paddles.
+        particles <- use $ _2 . gParticles . pParticles
+        forM_ particles $ \p -> lift $ drawSprite (p ^. pAnimation . aSprite)
         forM_ [gBall, gPlayer, gCPU] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
-        particles <- use $ _2 . gParticles . pParticles
-        forM_ particles $ \p -> lift $ drawSprite (p ^. pAnimation . aSprite)
         when paused $ do
             font <- use $ _2 . gFont
             lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
