@@ -191,9 +191,11 @@ mainLoop = loop
         fourth <- use $ _2 . gCPU . aSprite . sBox . remit box . bTop
         let midpoint = halfway (first, second)
             current = halfway (third, fourth)
-        _2 . gCPU . aVelocity . _y .= if midpoint <= current
-            then (-0.3)
-            else 0.3
+        _2 . gCPU . aVelocity . _y .= if abs (midpoint - current) > 0.01
+            then if midpoint <= current
+                then (-0.3)
+                else 0.3
+            else 0
         unless paused $ zoom _2 $ do
             pScored <- uses (gBall . aSprite . sBox . remit box . bRight) (>= 1)
             when pScored $ modify resetBall >> gPlayerScore += 1
