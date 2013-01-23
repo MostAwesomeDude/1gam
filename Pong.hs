@@ -101,13 +101,13 @@ makeGlobals = do
     where
     ball = Animation s v
     v = 0.2
-    s = colored red $ makeXYWHValid 0.3 0.6 0.1 0.1
+    s = colored red $ makeXYWHValid 0.3 0.6 0.05 0.05
     player = animate . colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
     cpu = animate . colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
 
 resetBall :: Globals -> Globals
 resetBall globals =
-    globals & gBall . aSprite . sBox .~ makeXYWHValid 0.3 0.6 0.1 0.1
+    globals & gBall . aSprite . sBox .~ makeXYWHValid 0.3 0.6 0.05 0.05
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
