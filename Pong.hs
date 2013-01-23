@@ -47,6 +47,7 @@ data Globals = Globals { _gFont :: Font
                        , _gCPUScore :: Int
                        , _gBounces :: Int
                        , _gPaused :: Bool
+                       , _gShowFPS :: Bool
                        , _gParticles :: Particles GLfloat }
 
 makeLenses ''Globals
@@ -76,11 +77,6 @@ tickParticles ticks (Particles g center ps) = Particles g' center ps''
 makeParticles :: Num v => Particles v
 makeParticles = Particles (mkStdGen 0) (0, 0) []
 
--- | Chop up a duration according to the delta of a timer.
-dt :: Fractional a => Timers -> a -> a
-dt timers x = delta * x / 1000
-    where delta = fromIntegral $ timers ^. tDelta
-
 move :: (Num v, Ord v, Show v) => v -> Animation v -> Animation v
 move delta animation = animation & aSprite . sBox . bXY %~ f
     where
@@ -97,7 +93,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0 0 False makeParticles
+    return $ Globals font ball player cpu 0 0 0 False True makeParticles
     where
     ball = Animation s v
     v = 0.2
@@ -113,6 +109,7 @@ eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_SPACE _ _) -> gPaused %= not
+    KeyDown (Keysym SDLK_TAB _ _) -> gShowFPS %= not
     KeyDown (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= -0.3
     KeyDown (Keysym SDLK_UP _ _) -> gPlayer . aVelocity . _y .= 0.3
     KeyUp (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= 0
@@ -170,15 +167,13 @@ mainLoop = loop
     loop = do
         ticks <- lift getTicks
         gems . gTimers %= updateTimestamp ticks
-        fps <- use $ gems . gTimers . tFps
-        delta <- use $ gems . gTimers . tDelta
-        lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
         lift clearScreen
         paused <- use $ _2 . gPaused
         unless paused $ do
-            delta' <- uses (gems . gTimers . tDelta) (\x -> fromIntegral x / 1000.0)
-            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move delta'
+            delta <- use $ gems . gTimers . tDelta
+            let dt = fromIntegral delta / 1000.0
+            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move dt
             _2 . gPlayer . aSprite %= clampPaddle
             _2 . gCPU . aSprite %= clampPaddle
             coords <- use $ _2 . gBall . aSprite . sBox . to center
@@ -224,6 +219,11 @@ mainLoop = loop
             font <- use $ _2 . gFont
             lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
             lift $ write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
+        showFPS <- use $ _2 . gShowFPS
+        when showFPS $ do
+            font <- use $ _2 . gFont
+            fps <- use $ gems . gTimers . tFps
+            lift $ write font (Text ("FPS: " ++ show (floor fps :: Int)) blue 0.9 0.97 (0.02 :: GLfloat))
         lift finishFrame
         q <- use $ gems . gQuitFlag
         unless q loop
