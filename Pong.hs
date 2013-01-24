@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -15,6 +14,7 @@ import Graphics.Rendering.OpenGL as GL
 import Graphics.UI.SDL as SDL
 import Linear as L
 
+import Gemstone.Animation
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
@@ -22,12 +22,6 @@ import Gemstone.Loop
 import Gemstone.Main
 import Gemstone.Sprite
 import Gemstone.Timers
-
-data Animation v = Animation { _aSprite   :: Sprite v
-                             , _aVelocity :: V2 v }
-    deriving (Show)
-
-makeLenses ''Animation
 
 data Particle v = Particle { _pAnimation :: Animation v
                            , _pTicks :: Int }
@@ -57,9 +51,6 @@ makeLenses ''Globals
 data Text a = Text String RGB a a a
     deriving (Show)
 
-makeAnimation :: Num v => Sprite v -> Animation v
-makeAnimation s = Animation s 0
-
 squareAt :: (Num a, Ord a) => a -> a -> a -> Box a
 squareAt x y r = makeXYXYValid (x - r) (y - r) (x + r) (y + r)
 
@@ -71,7 +62,7 @@ addJitter :: (Num a, Random a) => StdGen -> (a, a) -> (StdGen, a)
 addJitter g (x, jitter) = swap $ randomR (x - jitter, x + jitter) g
 
 makeParticle :: (Floating v, Ord v) => (v, v) -> Int -> RGB -> Particle v
-makeParticle (x, y) ticks c = Particle (makeAnimation s) ticks
+makeParticle (x, y) ticks c = Particle (animate s) ticks
     where s = colored c $ squareAt x y 0.005
 
 jitterColor :: StdGen -> RGB -> (StdGen, RGB)
@@ -97,15 +88,6 @@ tickParticles ticks (Particles g center@(cx, cy) ps) =
 
 makeParticles :: Num v => Particles v
 makeParticles = Particles (mkStdGen 0) (0, 0) []
-
-move :: (Num v, Ord v, Show v) => v -> Animation v -> Animation v
-move delta animation = animation & aSprite . sBox . bXY %~ f
-    where
-    v' = animation ^. aVelocity * pure delta
-    f (x, y) = case V2 x y + v' of V2 x' y' -> (x', y')
-
-animate :: Num a => Sprite a -> Animation a
-animate s = Animation s 0
 
 colored :: RGB -> Box v -> Sprite v
 colored c b = Sprite (Colored c Nothing) b
@@ -194,7 +176,7 @@ mainLoop = loop
         unless paused $ do
             delta <- use $ gems . gTimers . tDelta
             let dt = fromIntegral delta / 1000.0
-            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= move dt
+            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= moveAnimation dt
             _2 . gPlayer . aSprite %= clampPaddle
             _2 . gCPU . aSprite %= clampPaddle
             coords <- use $ _2 . gBall . aSprite . sBox . to center
