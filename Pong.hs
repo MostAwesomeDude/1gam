@@ -70,9 +70,14 @@ squareAt x y r = makeXYXYValid (x - r) (y - r) (x + r) (y + r)
 addJitter :: (Num a, Random a) => StdGen -> (a, a) -> (StdGen, a)
 addJitter g (x, jitter) = swap $ randomR (x - jitter, x + jitter) g
 
-makeParticle :: (Floating v, Ord v) => (v, v) -> Int -> Particle v
-makeParticle (x, y) ticks = Particle (makeAnimation s) ticks
-    where s = colored green $ squareAt x y 0.005
+makeParticle :: (Floating v, Ord v) => (v, v) -> Int -> RGB -> Particle v
+makeParticle (x, y) ticks c = Particle (makeAnimation s) ticks
+    where s = colored c $ squareAt x y 0.005
+
+jitterColor :: StdGen -> RGB -> (StdGen, RGB)
+jitterColor gen (Color3 r g b) = (gen', Color3 r' g' b')
+    where
+    (gen', [r', g', b']) = mapAccumL addJitter gen $ zip [r, g, b] (repeat 1)
 
 updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
 updateParticles ticks =
@@ -81,13 +86,14 @@ updateParticles ticks =
 tickParticles :: (Floating v, Ord v, Random v)
                => Int -> Particles v -> Particles v
 tickParticles ticks (Particles g center@(cx, cy) ps) =
-    Particles g'' center ps''
+    Particles g''' center ps''
     where
     ps' = updateParticles ticks ps
     ps'' = if length ps < 50 then newParticle : ps' else ps'
     (g', [x, y]) = mapAccumL addJitter g [(cx, 0.005), (cy, 0.005)]
     (life, g'') = randomR (50, 750) g'
-    newParticle = makeParticle (x, y) life
+    (g''', c) = jitterColor g'' green
+    newParticle = makeParticle (x, y) life c
 
 makeParticles :: Num v => Particles v
 makeParticles = Particles (mkStdGen 0) (0, 0) []
