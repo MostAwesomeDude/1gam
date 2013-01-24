@@ -99,13 +99,13 @@ clampPaddle :: (Ord a, Num a) => Sprite a -> Sprite a
 clampPaddle s = s & sBox . bY %~ max 0 & sBox . bY' %~ min 1
 
 aimBall :: (Epsilon a, Fractional a, Num a, RealFloat a) =>
-            Int -> Box a -> Box a -> V2 a
-aimBall count paddle ball = let
+            Box a -> Box a -> V2 a -> V2 a
+aimBall paddle ball previous = let
     (px, py) = center paddle
     (bx, by) = center ball
-    mag = 0.3 + (0.01 * fromIntegral count)
-    scaled = L.normalize $ V2 bx by - V2 px py
-    in scaled * mag
+    direction = L.normalize $ V2 bx by - V2 px py
+    mag = norm previous + 0.01
+    in direction * realToFrac mag
 
 -- Any paddle collision should successfully get the ball heading the other
 -- direction, regardless of intersection depth; this is to prevent situations
@@ -117,7 +117,7 @@ paddleBall b = do
     when paddled $ do
         count <- gBounces <+= 1
         ballBox <- use $ gBall . aSprite . sBox
-        gBall . aVelocity .= aimBall count b ballBox
+        gBall . aVelocity %= aimBall b ballBox
 
 mainLoop :: Loop Globals
 mainLoop = loop
