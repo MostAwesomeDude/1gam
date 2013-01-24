@@ -51,18 +51,18 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 False True ballParticles
+    return $ Globals font newBall player cpu 0 False True ballParticles
     where
-    ball = Animation s v
     ballParticles = makeParticles & pColor .~ Color3 235 20 20 & pColorVariance .~ 20
-    v = 0.2
-    s = colored red $ makeXYWHValid 0.3 0.6 0.05 0.05
     player = makePaddle 0.08
     cpu = makePaddle 0.90
 
+newBall :: Animation GLfloat
+newBall = Animation s 0.2
+    where s = colored red $ makeXYWHValid 0.3 0.3 0.05 0.05
+
 resetBall :: Globals -> Globals
-resetBall globals =
-    globals & gBall . aSprite . sBox .~ makeXYWHValid 0.3 0.6 0.05 0.05
+resetBall = gBall .~ newBall
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
