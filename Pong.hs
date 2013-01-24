@@ -31,7 +31,6 @@ data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
                        , _gPlayer :: Paddle
                        , _gCPU :: Paddle
-                       , _gBounces :: Int
                        , _gPaused :: Bool
                        , _gShowFPS :: Bool
                        , _gParticles :: Particles GLfloat }
@@ -51,7 +50,7 @@ makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font newBall player cpu 0 False True ballParticles
+    return $ Globals font newBall player cpu False True ballParticles
     where
     ballParticles = makeParticles & pColor .~ Color3 235 20 20 & pColorVariance .~ 20
     player = makePaddle 0.08
@@ -115,7 +114,6 @@ paddleBall :: Box GLfloat -> StateT Globals IO ()
 paddleBall b = do
     paddled <- uses (gBall . aSprite . sBox) $ bInter b
     when paddled $ do
-        count <- gBounces <+= 1
         ballBox <- use $ gBall . aSprite . sBox
         gBall . aVelocity %= aimBall b ballBox
 
