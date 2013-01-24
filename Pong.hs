@@ -42,16 +42,19 @@ data Text a = Text String RGB a a a
     deriving (Show)
 
 makePaddle :: GLfloat -> Paddle
-makePaddle x = Paddle s 0 makeParticles
-    where s = animate . colored black $ makeXYWHValid x 0.45 0.02 0.1
+makePaddle x = Paddle s 0 ps
+    where
+    s = animate . colored black $ makeXYWHValid x 0.45 0.02 0.1
+    ps = makeParticles & pColor .~ Color3 20 20 20 & pColorVariance .~ 20
 
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 False True makeParticles
+    return $ Globals font ball player cpu 0 False True ballParticles
     where
     ball = Animation s v
+    ballParticles = makeParticles & pColor .~ Color3 235 20 20 & pColorVariance .~ 20
     v = 0.2
     s = colored red $ makeXYWHValid 0.3 0.6 0.05 0.05
     player = makePaddle 0.08
