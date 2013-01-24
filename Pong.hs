@@ -5,9 +5,6 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
-import Data.Traversable
-import Data.Tuple
-import System.Random
 
 import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL as GL
@@ -20,20 +17,9 @@ import Gemstone.Color
 import Gemstone.GL
 import Gemstone.Loop
 import Gemstone.Main
+import Gemstone.Particles
 import Gemstone.Sprite
 import Gemstone.Timers
-
-data Particle v = Particle { _pAnimation :: Animation v
-                           , _pTicks :: Int }
-    deriving (Show)
-
-makeLenses ''Particle
-
-data Particles v = Particles { _pGen :: StdGen
-                             , _pCenter :: (v, v)
-                             , _pParticles :: [Particle v] }
-
-makeLenses ''Particles
 
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
@@ -50,47 +36,6 @@ makeLenses ''Globals
 
 data Text a = Text String RGB a a a
     deriving (Show)
-
-squareAt :: (Num a, Ord a) => a -> a -> a -> Box a
-squareAt x y r = makeXYXYValid (x - r) (y - r) (x + r) (y + r)
-
--- | Add some jitter to a number which can be randomized.
---
---   The result is swapped around so that it can be used with mapAccumL or
---   other poor-man's-State functions.
-addJitter :: (Num a, Random a) => StdGen -> (a, a) -> (StdGen, a)
-addJitter g (x, jitter) = swap $ randomR (x - jitter, x + jitter) g
-
-makeParticle :: (Floating v, Ord v) => (v, v) -> Int -> RGB -> Particle v
-makeParticle (x, y) ticks c = Particle (animate s) ticks
-    where s = colored c $ squareAt x y 0.005
-
-jitterColor :: StdGen -> RGB -> (StdGen, RGB)
-jitterColor gen (Color3 r g b) = (gen', Color3 r' g' b')
-    where
-    (gen', [r', g', b']) = mapAccumL addJitter gen $ zip [r, g, b] (repeat 20)
-
-updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
-updateParticles ticks =
-    filter (^. pTicks . to (> 0)) . over (traverse . pTicks) (\x -> x - ticks)
-
-tickParticles :: (Floating v, Ord v, Random v)
-               => Int -> Particles v -> Particles v
-tickParticles ticks (Particles g center@(cx, cy) ps) =
-    Particles g''' center ps''
-    where
-    ps' = updateParticles ticks ps
-    ps'' = if length ps < 100 then newParticle : ps' else ps'
-    (g', [x, y]) = mapAccumL addJitter g [(cx, 0.01), (cy, 0.01)]
-    (life, g'') = randomR (50, 1250) g'
-    (g''', c) = jitterColor g'' $ Color3 235 20 20
-    newParticle = makeParticle (x, y) life c
-
-makeParticles :: Num v => Particles v
-makeParticles = Particles (mkStdGen 0) (0, 0) []
-
-colored :: RGB -> Box v -> Sprite v
-colored c b = Sprite (Colored c Nothing) b
 
 makeGlobals :: IO Globals
 makeGlobals = do
@@ -216,7 +161,7 @@ mainLoop = loop
         zoom _2 showScores
         -- Particles are behind the ball and paddles.
         particles <- use $ _2 . gParticles . pParticles
-        forM_ particles $ \p -> lift $ drawSprite (p ^. pAnimation . aSprite)
+        forM_ particles $ \p -> lift $ drawSprite (p ^. _1 . aSprite)
         forM_ [gBall, gPlayer, gCPU] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
