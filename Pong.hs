@@ -6,6 +6,8 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
+import Data.Traversable
+import Data.Tuple
 import System.Random
 
 import Graphics.Rendering.FTGL as FTGL
@@ -58,9 +60,19 @@ data Text a = Text String RGB a a a
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s 0
 
+squareAt :: (Num a, Ord a) => a -> a -> a -> Box a
+squareAt x y r = makeXYXYValid (x - r) (y - r) (x + r) (y + r)
+
+-- | Add some jitter to a number which can be randomized.
+--
+--   The result is swapped around so that it can be used with mapAccumL or
+--   other poor-man's-State functions.
+addJitter :: (Num a, Random a) => StdGen -> (a, a) -> (StdGen, a)
+addJitter g (x, jitter) = swap $ randomR (x - jitter, x + jitter) g
+
 makeParticle :: (Floating v, Ord v) => (v, v) -> Int -> Particle v
 makeParticle (x, y) ticks = Particle (makeAnimation s) ticks
-    where s = colored green $ makeXYXYValid (x - 0.005) (y - 0.005) (x + 0.005) (y + 0.005)
+    where s = colored green $ squareAt x y 0.005
 
 updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
 updateParticles ticks =
@@ -69,14 +81,13 @@ updateParticles ticks =
 tickParticles :: (Floating v, Ord v, Random v)
                => Int -> Particles v -> Particles v
 tickParticles ticks (Particles g center@(cx, cy) ps) =
-    Particles g''' center ps''
+    Particles g'' center ps''
     where
     ps' = updateParticles ticks ps
     ps'' = if length ps < 50 then newParticle : ps' else ps'
-    (life, g') = randomR (0, 750) g
-    (jitterx, g'') = randomR (-0.005, 0.005) g'
-    (jittery, g''') = randomR (-0.005, 0.005) g''
-    newParticle = makeParticle (cx + jitterx, cy + jittery) life
+    (g', [x, y]) = mapAccumL addJitter g [(cx, 0.005), (cy, 0.005)]
+    (life, g'') = randomR (50, 750) g'
+    newParticle = makeParticle (x, y) life
 
 makeParticles :: Num v => Particles v
 makeParticles = Particles (mkStdGen 0) (0, 0) []
