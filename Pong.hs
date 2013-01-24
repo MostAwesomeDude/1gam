@@ -21,12 +21,16 @@ import Gemstone.Particles
 import Gemstone.Sprite
 import Gemstone.Timers
 
+data Paddle = Paddle { _pPaddle :: Animation GLfloat
+                     , _pScore :: Int
+                     , _pTrail :: Particles GLfloat }
+
+makeLenses ''Paddle
+
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
-                       , _gPlayer :: Animation GLfloat
-                       , _gCPU :: Animation GLfloat
-                       , _gPlayerScore :: Int
-                       , _gCPUScore :: Int
+                       , _gPlayer :: Paddle
+                       , _gCPU :: Paddle
                        , _gBounces :: Int
                        , _gPaused :: Bool
                        , _gShowFPS :: Bool
@@ -37,17 +41,21 @@ makeLenses ''Globals
 data Text a = Text String RGB a a a
     deriving (Show)
 
+makePaddle :: GLfloat -> Paddle
+makePaddle x = Paddle s 0 makeParticles
+    where s = animate . colored black $ makeXYWHValid x 0.45 0.02 0.1
+
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
     void $ setFontFaceSize font 1 72
-    return $ Globals font ball player cpu 0 0 0 False True makeParticles
+    return $ Globals font ball player cpu 0 False True makeParticles
     where
     ball = Animation s v
     v = 0.2
     s = colored red $ makeXYWHValid 0.3 0.6 0.05 0.05
-    player = animate . colored black $ makeXYWHValid 0.08 0.45 0.02 0.1
-    cpu = animate . colored black $ makeXYWHValid 0.90 0.45 0.02 0.1
+    player = makePaddle 0.08
+    cpu = makePaddle 0.90
 
 resetBall :: Globals -> Globals
 resetBall globals =
@@ -58,10 +66,10 @@ eventHandler event = case event of
     NoEvent -> return ()
     KeyDown (Keysym SDLK_SPACE _ _) -> gPaused %= not
     KeyDown (Keysym SDLK_TAB _ _) -> gShowFPS %= not
-    KeyDown (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= -0.3
-    KeyDown (Keysym SDLK_UP _ _) -> gPlayer . aVelocity . _y .= 0.3
-    KeyUp (Keysym SDLK_DOWN _ _) -> gPlayer . aVelocity . _y .= 0
-    KeyUp (Keysym SDLK_UP _ _) -> gPlayer . aVelocity . _y .= 0
+    KeyDown (Keysym SDLK_DOWN _ _) -> gPlayer . pPaddle . aVelocity . _y .= -0.3
+    KeyDown (Keysym SDLK_UP _ _) -> gPlayer . pPaddle . aVelocity . _y .= 0.3
+    KeyUp (Keysym SDLK_DOWN _ _) -> gPlayer . pPaddle . aVelocity . _y .= 0
+    KeyUp (Keysym SDLK_UP _ _) -> gPlayer . pPaddle . aVelocity . _y .= 0
     _ -> lift . putStrLn $ show event
 
 -- | Write some text.
@@ -79,10 +87,10 @@ halfway (x, y) = (x + y) / 2
 showScores :: StateT Globals IO ()
 showScores = do
     font <- use gFont
-    pScore <- uses gPlayerScore show
-    cScore <- uses gCPUScore show
-    lift $ write font (Text pScore blue 0.2 0.7 (0.1 :: GLfloat))
-    lift $ write font (Text cScore blue 0.7 0.7 (0.1 :: GLfloat))
+    playerScore <- uses (gPlayer . pScore) show
+    cpuScore <- uses (gCPU . pScore) show
+    lift $ write font (Text playerScore blue 0.2 0.7 (0.1 :: GLfloat))
+    lift $ write font (Text cpuScore blue 0.7 0.7 (0.1 :: GLfloat))
 
 clampPaddle :: (Ord a, Num a) => Sprite a -> Sprite a
 clampPaddle s = s & sBox . bY %~ max 0 & sBox . bY' %~ min 1
@@ -121,48 +129,57 @@ mainLoop = loop
         unless paused $ do
             delta <- use $ gems . gTimers . tDelta
             let dt = fromIntegral delta / 1000.0
-            zoom _2 $ forM_ [gBall, gPlayer, gCPU] $ \l -> l %= moveAnimation dt
-            _2 . gPlayer . aSprite %= clampPaddle
-            _2 . gCPU . aSprite %= clampPaddle
+            zoom _2 $ forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $
+                \l -> l %= moveAnimation dt
+            _2 . gPlayer . pPaddle . aSprite %= clampPaddle
+            _2 . gCPU . pPaddle . aSprite %= clampPaddle
             coords <- use $ _2 . gBall . aSprite . sBox . to center
             zoom (_2 . gParticles) $ do
                 pCenter .= coords
                 id %= tickParticles (fromIntegral delta)
+            zoom (_2 . gPlayer) $ do
+                pTrail . pCenter <~ use (pPaddle . aSprite . sBox . to center)
+                pTrail %= tickParticles (fromIntegral delta)
+            zoom (_2 . gCPU) $ do
+                pTrail . pCenter <~ use (pPaddle . aSprite . sBox . to center)
+                pTrail %= tickParticles (fromIntegral delta)
         -- Move the CPU's paddle towards the ball.
-        first <- use $ _2 . gBall . aSprite . sBox . remit box . bBot
-        second <- use $ _2 . gBall . aSprite . sBox . remit box . bTop
-        third <- use $ _2 . gCPU . aSprite . sBox . remit box . bBot
-        fourth <- use $ _2 . gCPU . aSprite . sBox . remit box . bTop
-        let midpoint = halfway (first, second)
-            current = halfway (third, fourth)
-        _2 . gCPU . aVelocity . _y .= if abs (midpoint - current) > 0.01
-            then if midpoint <= current
-                then (-0.3)
-                else 0.3
-            else 0
+        zoom _2 $ do
+            first <- use $ gBall . aSprite . sBox . remit box . bBot
+            second <- use $ gBall . aSprite . sBox . remit box . bTop
+            third <- use $ gCPU . pPaddle . aSprite . sBox . remit box . bBot
+            fourth <- use $ gCPU . pPaddle . aSprite . sBox . remit box . bTop
+            let midpoint = halfway (first, second)
+                current = halfway (third, fourth)
+            gCPU . pPaddle . aVelocity . _y .= if abs (midpoint - current) > 0.01
+                then if midpoint <= current
+                    then (-0.3)
+                    else 0.3
+                else 0
         unless paused $ zoom _2 $ do
             pScored <- uses (gBall . aSprite . sBox . remit box . bRight) (>= 1)
-            when pScored $ modify resetBall >> gPlayerScore += 1
+            when pScored $ modify resetBall >> gPlayer . pScore += 1
             cScored <- uses (gBall . aSprite . sBox . remit box . bLeft) (<= 0)
-            when cScored $ modify resetBall >> gCPUScore += 1
+            when cScored $ modify resetBall >> gCPU . pScore += 1
             -- Now, check for the top and bottom bounds of the arena.
             collidesBot <- uses (gBall . aSprite . sBox . remit box . bBot) (<= 0)
             when collidesBot $ gBall . aVelocity . _y %= abs
             collidesTop <- uses (gBall . aSprite . sBox . remit box . bTop) (>= 1)
             when collidesTop $ gBall . aVelocity . _y %= negate . abs
             -- Then check for collisions with the paddle.
-            paddleBox <- use $ gPlayer . aSprite . sBox
+            paddleBox <- use $ gPlayer . pPaddle . aSprite . sBox
             paddleBall paddleBox
-            cpuBox <- use $ gCPU . aSprite . sBox
+            cpuBox <- use $ gCPU . pPaddle . aSprite . sBox
             paddleBall cpuBox
         -- Draw the background, then the scores, and then the ball and
         -- players.
         lift $ drawSprite bg
         zoom _2 showScores
         -- Particles are behind the ball and paddles.
-        particles <- use $ _2 . gParticles . pParticles
-        forM_ particles $ \p -> lift $ drawSprite (p ^. _1 . aSprite)
-        forM_ [gBall, gPlayer, gCPU] $ \l -> do
+        forM_ [gParticles, gPlayer . pTrail, gCPU . pTrail] $ \l -> do
+            particles <- use $ _2 . l . pParticles
+            forM_ particles $ \p -> lift $ drawSprite (p ^. _1 . aSprite)
+        forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
         when paused $ do
