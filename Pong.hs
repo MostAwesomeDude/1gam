@@ -77,7 +77,7 @@ makeParticle (x, y) ticks c = Particle (makeAnimation s) ticks
 jitterColor :: StdGen -> RGB -> (StdGen, RGB)
 jitterColor gen (Color3 r g b) = (gen', Color3 r' g' b')
     where
-    (gen', [r', g', b']) = mapAccumL addJitter gen $ zip [r, g, b] (repeat 1)
+    (gen', [r', g', b']) = mapAccumL addJitter gen $ zip [r, g, b] (repeat 20)
 
 updateParticles :: (Ord v, Num v) => Int -> [Particle v] -> [Particle v]
 updateParticles ticks =
@@ -89,10 +89,10 @@ tickParticles ticks (Particles g center@(cx, cy) ps) =
     Particles g''' center ps''
     where
     ps' = updateParticles ticks ps
-    ps'' = if length ps < 50 then newParticle : ps' else ps'
-    (g', [x, y]) = mapAccumL addJitter g [(cx, 0.005), (cy, 0.005)]
-    (life, g'') = randomR (50, 750) g'
-    (g''', c) = jitterColor g'' green
+    ps'' = if length ps < 100 then newParticle : ps' else ps'
+    (g', [x, y]) = mapAccumL addJitter g [(cx, 0.01), (cy, 0.01)]
+    (life, g'') = randomR (50, 1250) g'
+    (g''', c) = jitterColor g'' $ Color3 235 20 20
     newParticle = makeParticle (x, y) life c
 
 makeParticles :: Num v => Particles v
