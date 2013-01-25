@@ -87,12 +87,6 @@ getInitialState = let
     anim = animate $ colored blue b
     in Globals anim basicTiles True
 
-coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
-coordsAt w _ dw dh i = let
-    w' = w `div` dw
-    (y, x) = i `divMod` w'
-    in (x * dw, y * dh)
-
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
     b = makeXYWHValid (realToFrac x) (realToFrac y) 1 (1 :: GLfloat)
