@@ -13,7 +13,9 @@ import Codec.Image.STB
 import Data.Bitmap.OpenGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
+import Linear as L
 
+import Gemstone.Animation
 import Gemstone.Box
 import Gemstone.Color
 import Gemstone.GL
@@ -72,17 +74,6 @@ colorTiles rt = let
     convolved (x, y) = convolve (l (x, y)) (l (x - 1, y)) (l (x + 1, y)) (l (x, y - 1)) (l (x, y + 1))
     in array bounds' [((x, y), convolved (x, y)) | (x, y) <- range bounds']
 
-data Velocity v = Velocity { _vX, _vY :: v }
-    deriving (Show)
-
-makeLenses ''Velocity
-
-data Animation v = Animation { _aSprite   :: Sprite v
-                             , _aVelocity :: Velocity v }
-    deriving (Show)
-
-makeLenses ''Animation
-
 data Globals = Globals { _gCharacter :: Animation GLfloat
                        , _gTiles     :: RawTiles
                        , _gShowTiles :: Bool }
@@ -90,16 +81,10 @@ data Globals = Globals { _gCharacter :: Animation GLfloat
 
 makeLenses ''Globals
 
-makeVelocity :: Num v => Velocity v
-makeVelocity = Velocity 0 0
-
-makeAnimation :: Num v => Sprite v -> Animation v
-makeAnimation s = Animation s makeVelocity
-
 getInitialState :: Globals
 getInitialState = let
     b = makeXYXYValid 0.1 0.1 0.9 0.9
-    anim = makeAnimation $ colored blue b
+    anim = animate $ colored blue b
     in Globals anim basicTiles True
 
 coordsAt :: Int -> Int -> Int -> Int -> Int -> (Int, Int)
@@ -144,8 +129,8 @@ gravitate = do
     delta <- use $ gems . gTimers . tDelta
     let dT = realToFrac delta / 1000
     -- Integrate acceleration to get velocity.
-    _2 . gCharacter . aVelocity . vY -= 9.8 * dT
-    y <- use $ _2 . gCharacter . aVelocity . vY
+    _2 . gCharacter . aVelocity . _y -= 9.8 * dT
+    y <- use $ _2 . gCharacter . aVelocity . _y
     -- Integrate velocity to get position.
     _2 . gCharacter . aSprite . sBox . bY += y * dT
 
@@ -157,7 +142,7 @@ mainLoop = makeShine >> loop
         b = makeXYXYValid 0.7 0.7 0.8 0.8
         in do
         texobj <- lift . loadTexture $ "shine2.png"
-        _2 . gCharacter .= makeAnimation (Sprite (Textured texobj) b)
+        _2 . gCharacter .= animate (Sprite (Textured texobj) b)
     loop :: Loop Globals
     loop = do
         ticks <- lift getTicks
