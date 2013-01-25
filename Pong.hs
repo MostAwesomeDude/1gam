@@ -49,7 +49,7 @@ makePaddle x = Paddle s 0 ps
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
-    void $ setFontFaceSize font 1 72
+    void $ setFontFaceSize font 2 72
     return $ Globals font newBall player cpu False True ballParticles
     where
     ballParticles = makeParticles & pColor .~ Color3 235 20 20 & pColorVariance .~ 20
@@ -75,12 +75,12 @@ eventHandler event = case event of
     _ -> lift . putStrLn $ show event
 
 -- | Write some text.
-write :: (Num c, MatrixComponent c) => Font -> Text c -> IO ()
-write font (Text text c x y h) = do
+write :: (Fractional c, Num c, MatrixComponent c) => Font -> Text c -> IO ()
+write font (Text text c x y h) = let h' = h / 2 in do
     color c
     preservingMatrix $ do
         translate $ Vector3 x y 0
-        scale h h 1
+        scale h' h' 1
         renderFont font text All
 
 halfway :: Fractional a => (a, a) -> a
