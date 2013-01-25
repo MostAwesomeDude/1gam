@@ -6,6 +6,8 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
+import Codec.Image.STB
+import Data.Bitmap.OpenGL
 import Graphics.Rendering.FTGL as FTGL
 import Graphics.Rendering.OpenGL as GL
 import Graphics.UI.SDL as SDL
@@ -46,22 +48,33 @@ makePaddle x = Paddle s 0 ps
     s = animate . colored black $ makeXYWHValid x 0.45 0.02 0.1
     ps = makeParticles & pColor .~ Color3 20 20 20 & pColorVariance .~ 20
 
+loadTexture :: FilePath -> IO TextureObject
+loadTexture path = do
+    ei <- loadImage path
+    let b = case ei of
+            Left x  -> error x
+            Right x -> x
+    makeSimpleBitmapTexture b
+
 makeGlobals :: IO Globals
 makeGlobals = do
     font <- createPolygonFont "Inconsolata.otf"
+    ballTexture <- loadTexture "ball.png"
+    let ball = newBall $ Textured ballTexture
     void $ setFontFaceSize font 2 72
-    return $ Globals font newBall player cpu False True ballParticles
+    return $ Globals font ball player cpu False True ballParticles
     where
     ballParticles = makeParticles & pColor .~ Color3 235 20 20 & pColorVariance .~ 20
     player = makePaddle 0.08
     cpu = makePaddle 0.90
 
-newBall :: Animation GLfloat
-newBall = Animation s 0.2
-    where s = colored red $ makeXYWHValid 0.3 0.3 0.05 0.05
+newBall :: Material -> Animation GLfloat
+newBall material = Animation s 0.2
+    where s = Sprite material $ makeXYWHValid 0.3 0.3 0.05 0.05
 
 resetBall :: Globals -> Globals
-resetBall = gBall .~ newBall
+resetBall g = g & gBall .~ newBall material
+    where material = g ^. gBall . aSprite . sMaterial
 
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of

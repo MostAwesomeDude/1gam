@@ -96,9 +96,6 @@ makeVelocity = Velocity 0 0
 makeAnimation :: Num v => Sprite v -> Animation v
 makeAnimation s = Animation s makeVelocity
 
-colored :: RGB -> Box v -> Sprite v
-colored c b = Sprite (Colored c Nothing) b
-
 getInitialState :: Globals
 getInitialState = let
     b = makeXYXYValid 0.1 0.1 0.9 0.9
@@ -169,7 +166,7 @@ mainLoop = makeShine >> loop
         delta <- use $ gems . gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
-        gravitate
+        -- gravitate
         lift clearScreen
         whether <- use $ _2 . gShowTiles
         tiles <- use $ _2 . gTiles
