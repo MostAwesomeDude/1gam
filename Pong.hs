@@ -131,14 +131,11 @@ paddleBall b = do
         gBall . aVelocity %= aimBall b ballBox
 
 mainLoop :: Loop Globals
-mainLoop = loop
+mainLoop = gemstoneLoop pre draw (return ())
     where
     bg = colored white $ makeXYXYValid 0 0 1 (1 :: GLfloat)
-    loop = do
-        ticks <- lift getTicks
-        gems . gTimers %= updateTimestamp ticks
+    pre = do
         handleEvents eventHandler
-        lift clearScreen
         paused <- use $ _2 . gPaused
         unless paused $ do
             delta <- use $ gems . gTimers . tDelta
@@ -185,6 +182,8 @@ mainLoop = loop
             paddleBall paddleBox
             cpuBox <- use $ gCPU . pPaddle . aSprite . sBox
             paddleBall cpuBox
+    draw = do
+        lift clearScreen
         -- Draw the background, then the scores, and then the ball and
         -- players.
         lift $ drawSprite bg
@@ -196,6 +195,7 @@ mainLoop = loop
         forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $ \l -> do
             sprite <- use $ _2 . l . aSprite
             lift $ drawSprite sprite
+        paused <- use $ _2 . gPaused
         when paused $ do
             font <- use $ _2 . gFont
             lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
@@ -206,8 +206,6 @@ mainLoop = loop
             fps <- use $ gems . gTimers . tFps
             lift $ write font (Text ("FPS: " ++ show (floor fps :: Int)) blue 0.9 0.97 (0.02 :: GLfloat))
         lift finishFrame
-        q <- use $ gems . gQuitFlag
-        unless q loop
 
 main :: IO ()
 main = do
