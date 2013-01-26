@@ -208,6 +208,4 @@ mainLoop = gemstoneLoop pre draw (return ())
         lift finishFrame
 
 main :: IO ()
-main = do
-    globals <- makeGlobals
-    gemstoneMain globals mainLoop
+main = gemstoneMain makeGlobals mainLoop

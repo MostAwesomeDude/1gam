@@ -81,11 +81,11 @@ data Globals = Globals { _gCharacter :: Animation GLfloat
 
 makeLenses ''Globals
 
-getInitialState :: Globals
+getInitialState :: IO Globals
 getInitialState = let
     b = makeXYXYValid 0.1 0.1 0.9 0.9
     anim = animate $ colored blue b
-    in Globals anim basicTiles True
+    in return $ Globals anim basicTiles True
 
 drawTile :: (Num v, Real v) => (v, v) -> RGB -> IO ()
 drawTile (x, y) c = let
