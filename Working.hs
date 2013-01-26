@@ -129,7 +129,7 @@ gravitate = do
     _2 . gCharacter . aSprite . sBox . bY += y * dT
 
 mainLoop :: Loop Globals
-mainLoop = makeShine >> loop
+mainLoop = makeShine >> gemstoneLoop pre draw (return ())
     where
     makeShine :: Loop Globals
     makeShine = let
@@ -137,15 +137,15 @@ mainLoop = makeShine >> loop
         in do
         texobj <- lift . loadTexture $ "shine2.png"
         _2 . gCharacter .= animate (Sprite (Textured texobj) b)
-    loop :: Loop Globals
-    loop = do
-        ticks <- lift getTicks
-        gems . gTimers %= updateTimestamp ticks
+    pre :: Loop Globals
+    pre = do
         fps <- use $ gems . gTimers . tFps
         delta <- use $ gems . gTimers . tDelta
         lift . putStrLn $ "Ticks: " ++ show delta ++ " (FPS: " ++ show (floor fps :: Int) ++ ")"
         handleEvents eventHandler
         -- gravitate
+    draw :: Loop Globals
+    draw = do
         lift clearScreen
         whether <- use $ _2 . gShowTiles
         tiles <- use $ _2 . gTiles
@@ -155,8 +155,6 @@ mainLoop = makeShine >> loop
         shine <- use $ _2 . gCharacter . aSprite
         lift . drawSprite $ shine
         lift finishFrame
-        q <- use $ gems . gQuitFlag
-        unless q loop
 
 loadTexture :: FilePath -> IO TextureObject
 loadTexture path = do
