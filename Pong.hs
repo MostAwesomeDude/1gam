@@ -99,13 +99,14 @@ write font (Text text c x y h) = let h' = h / 2 in do
 halfway :: Fractional a => (a, a) -> a
 halfway (x, y) = (x + y) / 2
 
-showScores :: StateT Globals IO ()
-showScores = do
-    font <- use gFont
-    playerScore <- uses (gPlayer . pScore) show
-    cpuScore <- uses (gCPU . pScore) show
-    lift $ write font (Text playerScore blue 0.2 0.7 (0.1 :: GLfloat))
-    lift $ write font (Text cpuScore blue 0.7 0.7 (0.1 :: GLfloat))
+showScores :: Globals -> IO ()
+showScores g = do
+    write font (Text playerScore blue 0.2 0.7 (0.1 :: GLfloat))
+    write font (Text cpuScore blue 0.7 0.7 (0.1 :: GLfloat))
+    where
+    font = g ^. gFont
+    playerScore = g ^. gPlayer . pScore . to show
+    cpuScore = g ^. gCPU . pScore . to show
 
 clampPaddle :: (Ord a, Num a) => Sprite a -> Sprite a
 clampPaddle s = s & sBox . bY %~ max 0 & sBox . bY' %~ min 1
@@ -130,10 +131,31 @@ paddleBall b = do
         ballBox <- use $ gBall . aSprite . sBox
         gBall . aVelocity %= aimBall b ballBox
 
+render :: Gems -> Globals -> IO ()
+render gems g = do
+    -- Draw the background, then the scores, and then the ball and
+    -- players.
+    drawSprite bg
+    showScores g
+    -- Particles are behind the ball and paddles.
+    forM_ [gParticles, gPlayer . pTrail, gCPU . pTrail] $ \l -> let
+        particles = g ^. l . pParticles
+        in forM_ particles $ \p -> drawSprite (p ^. _1 . aSprite)
+    forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $ \l ->
+        drawSprite $ g ^. l . aSprite
+    when (g ^. gPaused) $ do
+        drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
+        write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
+    when (g ^. gShowFPS) $ do
+        write font (Text ("FPS: " ++ show (floor fps :: Int)) blue 0.9 0.97 (0.02 :: GLfloat))
+    where
+    bg = colored white $ makeXYXYValid 0 0 1 (1 :: GLfloat)
+    font = g ^. gFont
+    fps = gems ^. gTimers . tFps
+
 mainLoop :: Loop Globals
 mainLoop = gemstoneLoop pre draw (return ())
     where
-    bg = colored white $ makeXYXYValid 0 0 1 (1 :: GLfloat)
     pre = do
         handleEvents eventHandler
         paused <- use $ _2 . gPaused
@@ -184,27 +206,8 @@ mainLoop = gemstoneLoop pre draw (return ())
             paddleBall cpuBox
     draw = do
         lift clearScreen
-        -- Draw the background, then the scores, and then the ball and
-        -- players.
-        lift $ drawSprite bg
-        zoom _2 showScores
-        -- Particles are behind the ball and paddles.
-        forM_ [gParticles, gPlayer . pTrail, gCPU . pTrail] $ \l -> do
-            particles <- use $ _2 . l . pParticles
-            forM_ particles $ \p -> lift $ drawSprite (p ^. _1 . aSprite)
-        forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $ \l -> do
-            sprite <- use $ _2 . l . aSprite
-            lift $ drawSprite sprite
-        paused <- use $ _2 . gPaused
-        when paused $ do
-            font <- use $ _2 . gFont
-            lift . drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
-            lift $ write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
-        showFPS <- use $ _2 . gShowFPS
-        when showFPS $ do
-            font <- use $ _2 . gFont
-            fps <- use $ gems . gTimers . tFps
-            lift $ write font (Text ("FPS: " ++ show (floor fps :: Int)) blue 0.9 0.97 (0.02 :: GLfloat))
+        (gems, g) <- use id
+        lift $ render gems g
         lift finishFrame
 
 main :: IO ()
