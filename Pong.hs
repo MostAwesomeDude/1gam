@@ -39,8 +39,8 @@ data Globals = Globals { _gFont :: Font
 
 makeLenses ''Globals
 
-data Text a = Text String RGB a a a
-    deriving (Show)
+textBox :: GLfloat -> GLfloat -> GLfloat -> Box GLfloat
+textBox x y h = makeXYWHValid x y 0.1 h
 
 makePaddle :: GLfloat -> Paddle
 makePaddle x = Paddle s 0 ps
@@ -87,26 +87,19 @@ eventHandler event = case event of
     KeyUp (Keysym SDLK_UP _ _) -> gPlayer . pPaddle . aVelocity . _y .= 0
     _ -> lift . putStrLn $ show event
 
--- | Write some text.
-write :: (Fractional c, Num c, MatrixComponent c) => Font -> Text c -> IO ()
-write font (Text text c x y h) = let h' = h / 2 in do
-    color c
-    preservingMatrix $ do
-        translate $ Vector3 x y 0
-        scale h' h' 1
-        renderFont font text All
-
 halfway :: Fractional a => (a, a) -> a
 halfway (x, y) = (x + y) / 2
 
 showScores :: Globals -> IO ()
 showScores g = do
-    write font (Text playerScore blue 0.2 0.7 (0.1 :: GLfloat))
-    write font (Text cpuScore blue 0.7 0.7 (0.1 :: GLfloat))
+    drawSprite $ Sprite (Text font playerScore blue) playerBox
+    drawSprite $ Sprite (Text font cpuScore blue) cpuBox
     where
     font = g ^. gFont
     playerScore = g ^. gPlayer . pScore . to show
     cpuScore = g ^. gCPU . pScore . to show
+    playerBox = textBox 0.2 0.7 0.1
+    cpuBox = textBox 0.7 0.7 0.1
 
 clampPaddle :: (Ord a, Num a) => Sprite a -> Sprite a
 clampPaddle s = s & sBox . bY %~ max 0 & sBox . bY' %~ min 1
@@ -145,13 +138,14 @@ render gems g = do
         drawSprite $ g ^. l . aSprite
     when (g ^. gPaused) $ do
         drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
-        write font (Text "PAUSED" blue 0.2 0.45 (0.2 :: GLfloat))
+        drawSprite $ Sprite (Text font "PAUSED" blue) (textBox 0.2 0.45 0.2)
     when (g ^. gShowFPS) $ do
-        write font (Text ("FPS: " ++ show (floor fps :: Int)) blue 0.9 0.97 (0.02 :: GLfloat))
+        drawSprite $ Sprite (Text font fpsText blue) (textBox 0.9 0.97 0.02)
     where
     bg = colored white $ makeXYXYValid 0 0 1 (1 :: GLfloat)
     font = g ^. gFont
     fps = gems ^. gTimers . tFps
+    fpsText = "FPS: " ++ show (floor fps :: Int)
 
 mainLoop :: Loop Globals
 mainLoop = gemstoneLoop pre draw (return ())
