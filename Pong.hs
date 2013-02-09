@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
+import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -29,6 +30,10 @@ data Paddle = Paddle { _pPaddle :: Animation GLfloat
 
 makeLenses ''Paddle
 
+paddleSprites :: Simple Traversal Paddle (Sprite GLfloat)
+paddleSprites f (Paddle a s t) =
+    Paddle <$> aSprite f a <*> pure s <*> particleSprites f t
+
 data Globals = Globals { _gFont :: Font
                        , _gBall :: Animation GLfloat
                        , _gPlayer :: Paddle
@@ -38,6 +43,11 @@ data Globals = Globals { _gFont :: Font
                        , _gParticles :: Particles GLfloat }
 
 makeLenses ''Globals
+
+globalSprites :: Simple Traversal Globals (Sprite GLfloat)
+globalSprites f (Globals t b p1 p2 p s ps) =
+    Globals t <$> aSprite f b <*> paddleSprites f p1 <*>
+    paddleSprites f p2 <*> pure p <*> pure s <*> particleSprites f ps
 
 textBox :: GLfloat -> GLfloat -> GLfloat -> Box GLfloat
 textBox x y h = makeXYWHValid x y 0.1 h
@@ -130,12 +140,7 @@ render gems g = do
     -- players.
     drawSprite bg
     showScores g
-    -- Particles are behind the ball and paddles.
-    forM_ [gParticles, gPlayer . pTrail, gCPU . pTrail] $ \l -> let
-        particles = g ^. l . pParticles
-        in forM_ particles $ \p -> drawSprite (p ^. _1 . aSprite)
-    forM_ [gBall, gPlayer . pPaddle, gCPU . pPaddle] $ \l ->
-        drawSprite $ g ^. l . aSprite
+    mapMOf_ globalSprites drawSprite g
     when (g ^. gPaused) $ do
         drawSprite $ Sprite (Colored black (Just 127)) (makeXYWHValid 0 0 1 (1 :: GLfloat))
         drawSprite $ Sprite (Text font "PAUSED" blue) (textBox 0.2 0.45 0.2)
