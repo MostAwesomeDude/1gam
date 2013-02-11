@@ -57,6 +57,8 @@ unitsPerSecond t = fromIntegral t / 1000
 eventHandler :: Event -> StateT Globals IO ()
 eventHandler event = case event of
     NoEvent -> return ()
+    KeyDown (Keysym SDLK_LEFT _ _) -> gCurrentColumn -= 1
+    KeyDown (Keysym SDLK_RIGHT _ _) -> gCurrentColumn += 1
     _ -> lift . putStrLn $ show event
 
 mainLoop :: Loop Globals
