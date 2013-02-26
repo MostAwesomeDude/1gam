@@ -8,6 +8,8 @@ import Control.Monad.Trans.State
 import qualified Data.Map as M
 import Data.Word
 
+import Codec.Image.STB
+import Data.Bitmap.OpenGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.SDL as SDL
 
@@ -26,14 +28,30 @@ data Globals = Globals { _gTableau :: M.Map Coords Material
                        , _gCurrentColumn :: Int
                        , _gCurrentRow :: GLfloat
                        , _gCurrentMat :: Material
-                       , _gMats :: [RGB] }
+                       , _gMats :: [Material] }
     deriving (Show)
 
 makeLenses ''Globals
 
+loadTexture :: FilePath -> IO TextureObject
+loadTexture path = do
+    ei <- loadImage path
+    let b = case ei of
+            Left x  -> error $ "Error loading " ++ show path ++ ": " ++ show x
+            Right x -> x
+    makeSimpleBitmapTexture b
+
+loadLetter :: Int -> IO TextureObject
+loadLetter i = let
+    num = if i < 10 then '0':show i else show i
+    path = "FallingBee-assets/letters" ++ num ++ ".png"
+    in loadTexture path
+
 getInitialState :: IO Globals
-getInitialState = return $ Globals M.empty 5 0.9 (Colored blue Nothing) mats
-    where mats = cycle [red, green, blue]
+getInitialState = do
+    mats <- mapM loadLetter [0..25]
+    let mats' = cycle $ map Textured mats
+    return $ Globals M.empty 5 0.9 (Colored blue Nothing) mats'
 
 matMap :: (Coords, Material) -> Sprite GLfloat
 matMap ((x, y), mat) = Sprite mat $ makeXYWHValid x' y' 0.1 0.1
@@ -75,10 +93,10 @@ mainLoop = gemstoneLoop pre draw (return ())
             collided <- gets gCollides
             when collided $ do
                 mat <- use gCurrentMat
-                (c : cs) <- use gMats
+                (m : ms) <- use gMats
                 gTableau . at (column, toRow row + 1) ?= mat
-                gCurrentMat %= \(Colored _ _) -> Colored c Nothing
-                gMats .= cs
+                gCurrentMat .= m
+                gMats .= ms
                 gCurrentRow .= 0.9
     draw :: Loop Globals
     draw = do
