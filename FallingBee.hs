@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Word
 
 import Codec.Image.STB
@@ -25,6 +26,7 @@ type Coords = (Int, Int)
 type BlockMap = M.Map Coords Material
 
 data Globals = Globals { _gTableau :: M.Map Coords Material
+                       , _gWords :: S.Set String
                        , _gCurrentColumn :: Int
                        , _gCurrentRow :: GLfloat
                        , _gCurrentMat :: Material
@@ -50,8 +52,10 @@ loadLetter i = let
 getInitialState :: IO Globals
 getInitialState = do
     mats <- mapM loadLetter [0..25]
+    ws <- readFile "four-letters.txt"
     let mats' = cycle $ map Textured mats
-    return $ Globals M.empty 5 0.9 (Colored blue Nothing) mats'
+        s = S.fromList $ lines ws
+    return $ Globals M.empty s 5 0.9 (Colored blue Nothing) mats'
 
 matMap :: (Coords, Material) -> Sprite GLfloat
 matMap ((x, y), mat) = Sprite mat $ makeXYWHValid x' y' 0.1 0.1
